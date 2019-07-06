@@ -58,6 +58,7 @@ do
     "0")
         . ~/pktgen-worker.sh $PKT_CONFIG
         . ~/speed-worker.sh
+        . ~/mtcp-worker.sh
         ;;  
     "2")
         . ~/speed-worker.sh

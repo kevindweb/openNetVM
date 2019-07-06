@@ -90,6 +90,8 @@ if POST_REVIEW:
         apply_stats(file, "Pktgen")
         file = './speed_summary.stats'
         apply_stats(file, "Speed Test")
+        file = './mtcp_summary.stats'
+        apply_stats(file, "MTCP")
 
     # PR must pass linter check
     linter_output = None
@@ -109,6 +111,8 @@ if POST_RESULTS:
     file = './pktgen_summary.stats'
     push_results(file)
     file = './speed_summary.stats'
+    push_results(file)
+    file = './mtcp_summary.stats'
     push_results(file)
 
 if POST_LINTER_OUTPUT:

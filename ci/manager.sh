@@ -199,6 +199,10 @@ do
         fetch_files $worker_key_file $worker_ip speed_stats
         python3 speed-tester-analysis.py ./$worker_ip.speed_stats $worker_ip speed_summary.stats $AVG_SPEED_TESTER_SPEED
         check_exit_code "Failed to parse Speed Tester stats"
+        # fetch mtcp stats
+        fetch_files $worker_key_file $worker_ip client_stats
+        python3 mtcp-analysis.py ./$worker_ip.client_stats $worker_ip mtcp_summary.stats $AVG_MTCP_SPEED
+        check_exit_code "Failed to parse mtcp stats"
     else
         # only fetch speed tester stats if mode is not 0
         fetch_files $worker_key_file $worker_ip speed_stats
