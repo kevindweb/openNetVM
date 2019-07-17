@@ -1,41 +1,35 @@
 #!/bin/bash
 
-# simple print function that takes a single argument
-# prints the argument as a header wrapped in dashes and pipes
-print_header() {
+LOGFILE=worker.log
+# remove previous log if it's over 300 lines
+RETAIN_NUM_LINES=300
+DPDK_DEVBIND=$RTE_SDK/usertools/dpdk-devbind.py
+
+# print to stdout and the logfile
+logsetup() {
+    TMP=$(tail -n $RETAIN_NUM_LINES $LOGFILE 2>/dev/null) && echo "${TMP}" > $LOGFILE
+    exec > >(tee -a $LOGFILE)
+    exec 2>&1
+}
+
+log() {
     # check that the argument exists
     if [ -z "$1" ]
     then
-        echo "No argument supplied to print_header!"
+        echo "No argument supplied to log!"
         return 1
     fi
+ 
+    echo "[$(date --rfc-3339=seconds)]: $*"
+}
 
-    # get the string length for formatting
-    strlen=${#1}
+# set up our log file
+logsetup
 
-    echo ""
-
-    # echo first line of dashes
-    echo -n "--"
-    for i in `eval echo {1..$strlen}`
-    do
-        echo -n "-"
-    done
-    echo "--"
-
-     # echo the argument
-    echo -n "| "
-    echo -n $1
-    echo " |"
-
-    # echo the second line of dashes
-    echo -n "--"
-    for i in `eval echo {1..$strlen}`
-    do
-        echo -n "-"
-    done
-    echo "--"
-    echo ""
+# given a 10G NIC interface, bring down and return the pci id
+nic_id_from_iface() {
+    sudo ifconfig $1 down
+    echo $($DPDK_DEVBIND --status | grep -e "if=$1" | cut -f 1 -d " ")
 }
 
  # sets up dpdk, sets env variables, and runs the install script
@@ -57,24 +51,35 @@ install_env() {
     echo export ONVM_NUM_HUGEPAGES=1024 >> ~/.bashrc
     export ONVM_NUM_HUGEPAGES=1024
 
-    echo $RTE_SDK
-
     sudo sh -c "echo 0 > /proc/sys/kernel/randomize_va_space"
-    
-    cd ../
-    # check if we need to bind an interface
-    if [[ -z $1 || ! $1 ]]
+
+    export DPDK_DEVBIND=$RTE_SDK/usertools/dpdk-devbind.py
+    pci_addresses=""
+
+    if [[ ! -z $MTCP_IFACE ]]
     then
-        . ./scripts/install.sh
-    else
-        # make sure interfaces are accesible by dpdk
-        sudo ifconfig p2p1 down
-        sudo ifconfig p2p2 down
-        # we're running Pktgen
-        python3 ~/install.py
+        # running mTCP, set up interfaces
+        id=$(nic_id_from_iface $MTCP_IFACE)
+        pci_addresses="$pci_addresses $id "
+        sudo $DPDK_DEVBIND -b igb_uio $id
+        python3 ~/mtcp-bind.py
+        sudo ifconfig dpdk0 $MTCP_IP_ADDR/24 up
+    fi
+
+    if [[ ! -z $PKT_IFACE ]]
+    then
+        # bring pktgen interface down, and set it up
+        pci_addresses="$pci_addresses $(nic_id_from_iface $PKT_IFACE) " 
         # disable flow table lookup for faster results
         sed -i "/ENABLE_FLOW_LOOKUP\=1/c\\ENABLE_FLOW_LOOKUP=0" ~/repository/onvm/onvm_mgr/Makefile
     fi
+
+    # export addresses for environment setup script
+    echo export ONVM_NIC_PCI=\"$pci_addresses\" >> ~/.bashrc
+    export ONVM_NIC_PCI=$pci_addresses
+    
+    cd ../ 
+    . ./scripts/install.sh
 }
 
 # makes all onvm code

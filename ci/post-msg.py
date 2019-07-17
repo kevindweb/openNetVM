@@ -15,7 +15,8 @@ if len(sys.argv) != 6:
     print("ERROR!  Incorrect number of arguments")
     sys.exit(1)
 
-def apply_stats(file, name):
+# add results of statistics file to Github comments
+def process_results_from_worker(file, name):
     global comment_body
     global ACTION
     if path.exists(file):
@@ -27,15 +28,16 @@ def apply_stats(file, name):
             comment_body += " :x: PR drops {} performance below minimum requirement\n".format(name)
             ACTION = 'REQUEST_CHANGES'
 
-def push_results(file):
+# workers have many stats files, make sure its name only displays once
+def add_results_from_worker(file):
     global comment_body
     global previous_results_from
     with open(file) as f:
         results = json.load(f)
     if previous_results_from != results['results_from']:
-        comment_body += "\n " + results['results_from']
+        comment_body += "\n" + results['results_from']
         previous_results_from = results['results_from'] 
-    comment_body += "\n " + results['summary']
+    comment_body += "\n" + results['summary']
 
 with open(sys.argv[1], "r") as credsfile:
     creds = [x.strip() for x in credsfile.readlines()]
@@ -87,11 +89,11 @@ if POST_REVIEW:
     # PR must not affect performance
     if POST_RESULTS:
         file = './pktgen_summary.stats'
-        apply_stats(file, "Pktgen")
+        process_results_from_worker(file, "Pktgen")
         file = './speed_summary.stats'
-        apply_stats(file, "Speed Test")
+        process_results_from_worker(file, "Speed Test")
         file = './mtcp_summary.stats'
-        apply_stats(file, "MTCP")
+        process_results_from_worker(file, "MTCP")
 
     # PR must pass linter check
     linter_output = None
@@ -109,11 +111,11 @@ if POST_REVIEW:
 
 if POST_RESULTS:
     file = './pktgen_summary.stats'
-    push_results(file)
+    add_results_from_worker(file)
     file = './speed_summary.stats'
-    push_results(file)
+    add_results_from_worker(file)
     file = './mtcp_summary.stats'
-    push_results(file)
+    add_results_from_worker(file)
 
 if POST_LINTER_OUTPUT:
     linter_output = None
@@ -128,11 +130,12 @@ if POST_LINTER_OUTPUT:
 
 if POST_REVIEW:
     # Actual review is required
-    pull_request.create_review(
-        body=comment_body,
-        event=ACTION
-    )
+    #pull_request.create_review(
+    #    body=comment_body,
+    #    event=ACTION
+    #)
+    print(comment_body)
 else:
     # Just a general info comment
-    pull_request.create_comment(comment_body)
-
+    #pull_request.create_comment(comment_body)
+    print(comment_body)

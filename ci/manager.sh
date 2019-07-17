@@ -90,7 +90,7 @@ then
 fi
 
 print_header "Posting on Github that CI is starting"
-python3 post-msg.py $GITHUB_CREDS "{\"id\": $PR_ID,\"request\":\"$REQUEST\"}" $REPO_OWNER $REPO_NAME "Your results will arrive shortly"
+#python3 post-msg.py $GITHUB_CREDS "{\"id\": $PR_ID,\"request\":\"$REQUEST\"}" $REPO_OWNER $REPO_NAME "Your results will arrive shortly"
 check_exit_code "ERROR: Failed to post initial message to GitHub"
 
 for worker_tuple in "${WORKER_LIST[@]}"
@@ -137,7 +137,7 @@ do
     python3 prepare-worker.py $worker_ip $worker_key_file
 done
 
-sleep 10 # wait 10 seconds for reboot to take effect
+#sleep 10 # wait 10 seconds for reboot to take effect
 
 for worker_tuple in "${WORKER_LIST[@]}"
 do
@@ -150,7 +150,7 @@ done
 
 print_header "All Workers Prepared"
 
-sleep 10 # give an extra 10 seconds for ssh/scp to come online
+#sleep 10 # give an extra 10 seconds for ssh/scp to come online
 
 print_header "Copying ONVM files to Workers"
 for worker_tuple in "${WORKER_LIST[@]}"
@@ -169,7 +169,7 @@ do
     # get rid of the temp folder now for next worker
     sudo rm -rf temp
 done
-
+exit 1
 print_header "Running Workloads on Workers"
 for worker_tuple in "${WORKER_LIST[@]}"
 do

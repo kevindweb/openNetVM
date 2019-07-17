@@ -1,22 +1,9 @@
 #!/bin/bash
 
-if [[ -z $1 ]]
-then
-    echo "ERROR: Missing first argument, path to pktgen config file"
-    exit 1
-fi
-
-if [[ ! -f $1 ]]
-then
-    echo "ERROR: Could not find config file at given path!"
-    exit 1
-fi
-
-. $1 # source the variables from pktgen config file
-
-print_header "Running ONVM Manager"
+log "Running ONVM Manager"
 cd ~/repository/onvm
-./go.sh 0,1,2,3 3 0xF0 -a 0x7f000000000 -s stdout &>~/onvm_stats &
+# run manager with only port 0 (p2p1)
+./go.sh 0,1,2,3 1 0xF0 -a 0x7f000000000 -s stdout &>~/onvm_pktgen_stats &
 mgr_pid=0
 if [ $mgr_pid -ne 0 ] 
 then
@@ -26,9 +13,9 @@ fi
 
 # wait for the manager to come online
 sleep 15
-print_header "Manager is live"
+log "Manager is live"
 
-print_header "Running Basic Monitor NF"
+log "Running Basic Monitor NF"
 cd ~/repository/examples/basic_monitor
 ./go.sh 1 &>~/bsc_stats &
 bsc_mntr_pid=0
@@ -39,18 +26,18 @@ then
 fi
 
 # make sure basic monitor initializes
-sleep 5
+sleep 10
 
 # run pktgen
-print_header "Collecting Pktgen Statistics"
-python3 ~/run-pktgen.py $PKT_WORKER_IP $PKT_WORKER_KEY_FILE $WORKER_USER
+log "Collecting Pktgen Statistics"
+python3 ~/run-pktgen.py $WORKER_IP $WORKER_KEY_FILE $WORKER_USER
 # get Pktgen stats from server
-scp -i $PKT_WORKER_KEY_FILE -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null $WORKER_USER@$PKT_WORKER_IP:~/repository/tools/Pktgen/pktgen-dpdk/port_stats ~/pktgen_stats
+scp -i $WORKER_KEY_FILE -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null $WORKER_USER@$WORKER_IP:~/repository/tools/Pktgen/pktgen-dpdk/port_stats ~/pktgen_stats
 
-print_header "Killing Basic Monitor"
-sudo pkill -f /basic_monitor
+log "Killing Basic Monitor"
+sudo pkill -f basic_monitor
 
-print_header "Exiting ONVM"
+log "Exiting ONVM"
 
 echo "Manager pid: ${mgr_pid}"
 sudo pkill -f onvm_mgr
