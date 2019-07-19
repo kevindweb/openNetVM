@@ -4,7 +4,7 @@ log "Running ONVM Manager"
 cd ~/repository/onvm
 # run manager with only port 0 (p2p1)
 ./go.sh 0,1,2,3 1 0xF0 -a 0x7f000000000 -s stdout &>~/onvm_pktgen_stats &
-mgr_pid=0
+mgr_pid=$?
 if [ $mgr_pid -ne 0 ] 
 then
     echo "ERROR: Starting manager failed"
@@ -18,7 +18,7 @@ log "Manager is live"
 log "Running Basic Monitor NF"
 cd ~/repository/examples/basic_monitor
 ./go.sh 1 &>~/bsc_stats &
-bsc_mntr_pid=0
+bsc_mntr_pid=$?
 if [ $bsc_mntr_pid -ne 0 ] 
 then
     echo "ERROR: Starting basic monitor failed"

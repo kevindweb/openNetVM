@@ -23,10 +23,10 @@ fi
 # source helper functions file
 . helper-functions.sh
 
-#sudo apt-get install -y build-essential linux-headers-$(uname -r) git
-#sudo apt-get install -y libnuma1
-#sudo apt-get install -y libnuma-dev
-#sudo apt-get install -y python3
+sudo apt-get install -y build-essential linux-headers-$(uname -r) git
+sudo apt-get install -y libnuma1
+sudo apt-get install -y libnuma-dev
+sudo apt-get install -y python3
 
 cd repository
 log "Beginning Execution of Workload"
@@ -36,15 +36,15 @@ install_env
 check_exit_code "ERROR: Installing environment failed"
 
 log "Building ONVM"
-#build_onvm
+build_onvm
 check_exit_code "ERROR: Building ONVM failed"
-exit 1
+
 for mode in $WORKER_MODE
 do
     # run functionality for each mode
     case "$mode" in
     "0")
-        . ~/speed-worker.sh
+        . ~/speed-test-worker.sh
         ;;  
     "1")
         . ~/pktgen-worker.sh
@@ -53,7 +53,7 @@ do
         . ~/mtcp-worker.sh
         ;;  
     "3")
-        . ~/speed-worker.sh
+        . ~/speed-test-worker.sh
         . ~/pktgen-worker.sh
         . ~/mtcp-worker.sh
         ;;  

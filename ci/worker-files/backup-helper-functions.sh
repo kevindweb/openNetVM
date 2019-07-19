@@ -26,11 +26,10 @@ log() {
 # set up our log file
 logsetup
 
-# given a 10G NIC interface, bring down and bind to dpdk
-bind_nic_from_iface() {
+# given a 10G NIC interface, bring down and return the pci id
+nic_id_from_iface() {
     sudo ifconfig $1 down
-    id=$($DPDK_DEVBIND --status | grep -e "if=$1" | cut -f 1 -d " ")
-    sudo $DPDK_DEVBIND -b igb_uio $id
+    echo $($DPDK_DEVBIND --status | grep -e "if=$1" | cut -f 1 -d " ")
 }
 
  # sets up dpdk, sets env variables, and runs the install script
@@ -54,28 +53,15 @@ install_env() {
 
     sudo sh -c "echo 0 > /proc/sys/kernel/randomize_va_space"
 
-    if [[ ! -z $MTCP_IFACE ]]
-    then
-        # bring iface up so onvm install can't bind it
-        sudo ifconfig $MTCP_IFACE 11.0.0.17 up
-    fi
-
-    if [[ ! -z $PKT_IFACE ]]
-    then
-        # dummy so setup_environment binds nothing to dpdk
-        sudo ifconfig $PKT_IFACE 11.0.0.17 up
-    fi
-
-    cd ../ 
-    . ./scripts/install.sh
-   
-    # helper for binding interfaces 
     export DPDK_DEVBIND=$RTE_SDK/usertools/dpdk-devbind.py
+    pci_addresses=""
 
     if [[ ! -z $MTCP_IFACE ]]
     then
         # running mTCP, set up interfaces
-        bind_nic_from_iface $MTCP_IFACE
+        id=$(nic_id_from_iface $MTCP_IFACE)
+        pci_addresses="$pci_addresses $id "
+        sudo $DPDK_DEVBIND -b igb_uio $id
         python3 ~/mtcp-bind.py
         sudo ifconfig dpdk0 $MTCP_IP_ADDR/24 up
     fi
@@ -83,10 +69,17 @@ install_env() {
     if [[ ! -z $PKT_IFACE ]]
     then
         # bring pktgen interface down, and set it up
-        bind_nic_from_iface $PKT_IFACE
+        pci_addresses="$pci_addresses $(nic_id_from_iface $PKT_IFACE) " 
         # disable flow table lookup for faster results
         sed -i "/ENABLE_FLOW_LOOKUP\=1/c\\ENABLE_FLOW_LOOKUP=0" ~/repository/onvm/onvm_mgr/Makefile
     fi
+
+    # export addresses for environment setup script
+    echo export ONVM_NIC_PCI=\"$pci_addresses\" >> ~/.bashrc
+    export ONVM_NIC_PCI=$pci_addresses
+    
+    cd ../ 
+    . ./scripts/install.sh
 }
 
 # makes all onvm code

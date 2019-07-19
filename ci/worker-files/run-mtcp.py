@@ -21,16 +21,18 @@ client = SSHClient()
 client.set_missing_host_key_policy(AutoAddPolicy())
 client.connect(worker_ip, timeout = 30, username=worker_user, pkey = key)
 
-epwget = "sudo ~/mtcp_client {} {}".format(dpdk_ip_addr, run_time)
+num_reqs = 10000
+con_clients = 1024
+
+epwget = "sudo ~/client_mtcp.sh {} {} {} {}".format(num_reqs, con_clients, dpdk_ip_addr, run_time)
 (stdin, stdout, stderr) = client.exec_command(epwget, get_pty=True)
 
 # block until script finishes
 exit_status = stdout.channel.recv_exit_status()
-
 # write to file for debugging 
 with open('/home/' + worker_user + '/paramiko_mtcp_out.log', 'a+') as paramiko_out:
     paramiko_out.write(datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y") + "\n")
-#    paramiko_out.write(stdout.read().decode('ascii') + "\n")
+    paramiko_out.write(stdout.read().decode('ascii') + "\n")
 
 # kill client on other server
 (stdin, stdout, stderr) = client.exec_command("sudo pkill epwget", get_pty=True)
