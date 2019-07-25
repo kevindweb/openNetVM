@@ -90,7 +90,7 @@ then
 fi
 
 print_header "Posting on Github that CI is starting"
-#python3 post-msg.py $GITHUB_CREDS "{\"id\": $PR_ID,\"request\":\"$REQUEST\"}" $REPO_OWNER $REPO_NAME "Your results will arrive shortly"
+python3 post-msg.py $GITHUB_CREDS "{\"id\": $PR_ID,\"request\":\"$REQUEST\"}" $REPO_OWNER $REPO_NAME "Your results will arrive shortly"
 check_exit_code "ERROR: Failed to post initial message to GitHub"
 
 for worker_tuple in "${WORKER_LIST[@]}"
@@ -137,7 +137,7 @@ do
     python3 prepare-worker.py $worker_ip $worker_key_file
 done
 
-#sleep 10 # wait 10 seconds for reboot to take effect
+sleep 10 # wait 10 seconds for reboot to take effect
 
 for worker_tuple in "${WORKER_LIST[@]}"
 do
@@ -150,7 +150,7 @@ done
 
 print_header "All Workers Prepared"
 
-#sleep 10 # give an extra 10 seconds for ssh/scp to come online
+sleep 10 # give an extra 10 seconds for ssh/scp to come online
 
 print_header "Copying ONVM files to Workers"
 for worker_tuple in "${WORKER_LIST[@]}"
@@ -159,7 +159,7 @@ do
     worker_ip="${tuple_arr[0]}"
     worker_key_file="${tuple_arr[1]}"
     # make sure the config file is updated with the correct run mode
-    sed -i "/MODES*/c\\MODES=\"${RUN_MODE}\"" worker-files/worker-config
+    sed -i "/WORKER_MODE*/c\\WORKER_MODE=\"${RUN_MODE}\"" worker-files/worker-config
     # put all files in one temporary folder for one scp
     cp -r ./$worker_ip temp
     cp -r ./repository temp/
@@ -189,7 +189,7 @@ do
     # get the benchmarks for each node (some servers are faster)
     . ./$worker_ip/benchmarks
     # TODO: this will overwrite results if we have more than 1 worker, investigate this case
-    if [[ "$RUN_MODE" -eq "0" ]]
+    if [[ "$RUN_MODE" -eq "3" ]]
     then
         # fetch pktgen stats 
         fetch_files $worker_key_file $worker_ip pktgen_stats
@@ -206,7 +206,7 @@ do
     else
         # only fetch speed tester stats if mode is not 0
         fetch_files $worker_key_file $worker_ip speed_stats
-        python3 speed-tester-analysis.py ./$worker_ip.speed_stats $worker_ip speed_summary.stats
+        python3 speed-tester-analysis.py ./$worker_ip.speed_stats $worker_ip speed_summary.stats $AVG_SPEED_TESTER_SPEED
         check_exit_code "Failed to parse Speed Tester stats"
     fi
     check_exit_code "ERROR: Failed to analyze results from $worker_ip"

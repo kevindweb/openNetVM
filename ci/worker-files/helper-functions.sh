@@ -68,17 +68,9 @@ install_env() {
 
     cd ../ 
     . ./scripts/install.sh
-   
+ 
     # helper for binding interfaces 
     export DPDK_DEVBIND=$RTE_SDK/usertools/dpdk-devbind.py
-
-    if [[ ! -z $MTCP_IFACE ]]
-    then
-        # running mTCP, set up interfaces
-        bind_nic_from_iface $MTCP_IFACE
-        python3 ~/mtcp-bind.py
-        sudo ifconfig dpdk0 $MTCP_IP_ADDR/24 up
-    fi
 
     if [[ ! -z $PKT_IFACE ]]
     then
