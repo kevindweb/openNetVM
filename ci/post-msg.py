@@ -93,7 +93,7 @@ if POST_REVIEW:
         file = './speed_summary.stats'
         process_results_from_worker(file, "Speed Test")
         file = './mtcp_summary.stats'
-        process_results_from_worker(file, "MTCP")
+        process_results_from_worker(file, "mTCP")
 
     # PR must pass linter check
     linter_output = None
@@ -110,9 +110,9 @@ if POST_REVIEW:
         comment_body += " :heavy_check_mark: Linter passed\n"
 
 if POST_RESULTS:
-    file = './pktgen_summary.stats'
-    add_results_from_worker(file)
     file = './speed_summary.stats'
+    add_results_from_worker(file)
+    file = './pktgen_summary.stats'
     add_results_from_worker(file)
     file = './mtcp_summary.stats'
     add_results_from_worker(file)
