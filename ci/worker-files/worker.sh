@@ -45,16 +45,16 @@ do
     case "$mode" in
     "0")
         . ~/speed-test-worker.sh
-        ;;  
-    "1")
         . ~/pktgen-worker.sh
-        ;;  
-    "2")
         . ~/mtcp-worker.sh
         ;;  
-    "3")
+    "1")
         . ~/speed-test-worker.sh
+        ;;  
+    "2")
         . ~/pktgen-worker.sh
+        ;;  
+    "3")
         . ~/mtcp-worker.sh
         ;;  
     *)  

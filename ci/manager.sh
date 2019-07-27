@@ -189,7 +189,7 @@ do
     # get the benchmarks for each node (some servers are faster)
     . ./$worker_ip/benchmarks
     # TODO: this will overwrite results if we have more than 1 worker, investigate this case
-    if [[ "$RUN_MODE" -eq "3" ]]
+    if [[ "$RUN_MODE" -eq "0" ]]
     then
         # fetch pktgen stats 
         fetch_files $worker_key_file $worker_ip pktgen_stats
