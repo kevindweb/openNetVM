@@ -40,7 +40,7 @@ sleep 10
 log "Collecting Pktgen Statistics"
 run_pktgen
 # check if pktgen returned results (non-zero)
-if [ -z $(grep -v "^0$" ~/test-pkt | cat) ]
+if [ -z "$(grep -v "^0$" ~/pktgen_stats | cat)" ]
 then
     log "Running Pktgen again"
     run_pktgen

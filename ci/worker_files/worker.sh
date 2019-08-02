@@ -21,7 +21,7 @@ then
 fi
 
 # source helper functions file
-. helper-functions.sh
+. helper-worker-functions.sh
 
 sudo apt-get install -y build-essential linux-headers-$(uname -r) git
 sudo apt-get install -y libnuma1
@@ -44,16 +44,16 @@ do
     # run functionality for each mode
     case "$mode" in
     "0")
-        . ~/speed-test-worker.sh
+        . ~/speed-tester-worker.sh
         . ~/pktgen-worker.sh
         . ~/mtcp-worker.sh
-        ;;  
+        ;;
     "1")
-        . ~/speed-test-worker.sh
+        . ~/speed-tester-worker.sh
         ;;  
     "2")
         . ~/pktgen-worker.sh
-        ;;  
+        ;;
     "3")
         . ~/mtcp-worker.sh
         ;;  
