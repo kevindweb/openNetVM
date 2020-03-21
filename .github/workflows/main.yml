@@ -1,0 +1,35 @@
+name: changes
+on:
+  pull_request:
+   types: [opened, edited]
+jobs:
+  branch:
+    runs-on: ubuntu-latest
+
+    steps:
+      # If Branch name is not develop, exit
+      - name: Test Branch Name
+        if: github.base_ref != 'develop'
+        run: |
+          echo Run on develop not ${{github.base_ref}}
+          exit 1
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+
+      # Clone Repository
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      # Install Python.
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '2.7'
+
+      # Perform lint on user's files.
+      - name: User's Lint
+        run: |
+         chmod +x style/get-user-lint.sh
+         style/get-user-lint.sh
