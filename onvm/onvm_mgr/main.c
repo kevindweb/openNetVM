@@ -74,7 +74,7 @@ handle_signal(int sig);
  * Stats thread periodically prints per-port and per-NF stats.
  */
 static void
-master_thread_main(void) {
+         master_thread_main(void) {
         uint16_t i;
         int shutdown_iter_count;
         const unsigned sleeptime = global_stats_sleep_time;
