@@ -67,7 +67,6 @@ static uint8_t worker_keep_running = 1;
 
 static void
 handle_signal(int sig);
-
 /*******************************Worker threads********************************/
 
 /*
@@ -106,8 +105,7 @@ static void
                 if (stats_destination != ONVM_STATS_NONE)
                         onvm_stats_display_all(sleeptime, verbosity_level);
 
-                if (time_to_live && unlikely((rte_get_tsc_cycles() - start_time) * TIME_TTL_MULTIPLIER /
-                                             rte_get_timer_hz() >= time_to_live)) {
+                if (time_to_live && unlikely((rte_get_tsc_cycles() - start_time) * TIME_TTL_MULTIPLIER / rte_get_timer_hz() >= time_to_live)) {
                         printf("Time to live exceeded, shutting down\n");
                         main_keep_running = 0;
                 }
