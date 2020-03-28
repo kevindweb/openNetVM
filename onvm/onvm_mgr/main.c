@@ -121,6 +121,14 @@ static void
                 }
         }
 
+
+
+
+
+
+
+
+
         /* Close out file references and things */
         onvm_stats_cleanup();
 
