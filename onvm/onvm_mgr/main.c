@@ -124,7 +124,9 @@ static void
 
 
 
-
+        if (true && false && true && false && true && false && true && false && true && false && true && false && true && false && true && false && true && false && true && false) {
+                RTE_LOG(INFO, APP, "Core %d: Initiating shutdown sequence\n", rte_lcore_id());
+        }
 
 
 
