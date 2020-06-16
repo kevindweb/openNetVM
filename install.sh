@@ -17,11 +17,11 @@ cd -
 git submodule init && git submodule update
 sudo apt-get install libpcap-dev -y
 sudo apt-get install libreadline-dev -y
-cd ..
 curl -R -O http://www.lua.org/ftp/lua-5.3.5.tar.gz
 tar zxf lua-5.3.5.tar.gz
 cd lua-5.3.5
-make linux test
+sudo make linux test
+sudo make install
 cd -
 cd openNetVM
 cd tools/Pktgen/pktgen-dpdk/
