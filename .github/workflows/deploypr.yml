@@ -1,4 +1,4 @@
-name: 'deploypr'
+name: 'ONVM CI'
 on:
   pull_request:
     types: [opened]
@@ -11,10 +11,13 @@ jobs:
       - uses: khan/pull-request-comment-trigger@master
         id: check
         with:
-          trigger: 'deploy'
+          trigger: 'onvm'
           prefix_only: 'true'
           reaction: rocket
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-      - run: 'echo Found it!'
+      - name: Triggered
         if: steps.check.outputs.triggered == 'true'
+        run: |
+          echo 'Found CI!'
+          exit 1
