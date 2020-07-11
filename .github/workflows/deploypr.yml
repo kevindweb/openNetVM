@@ -21,4 +21,14 @@ jobs:
         run: |
           echo 'Found CI!'
           echo $GITHUB_RUN_ID
-          exit 1
+      - name: Add comment to PR
+        env:
+          URL: ${{ github.event.issue.comments_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl \
+            -X POST \
+            $URL \
+            -H "Content-Type: application/json" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            --data '{ "body": "[Passed] Check [Github Action results](https://github.com/kevindweb/openNetVM/actions/runs/${GITHUB_RUN_ID})" }'
