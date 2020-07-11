@@ -20,4 +20,5 @@ jobs:
         if: steps.check.outputs.triggered == 'true'
         run: |
           echo 'Found CI!'
+          echo $GITHUB_RUN_ID
           exit 1
