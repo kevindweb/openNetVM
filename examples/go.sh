@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Testing
 #The go.sh script is a convinient way to run start_nf.sh without specifying NF_NAME
 
 NF_DIR=${PWD##*/}
