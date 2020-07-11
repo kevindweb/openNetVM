@@ -31,4 +31,4 @@ jobs:
             $URL \
             -H "Content-Type: application/json" \
             -H "Authorization: token $GITHUB_TOKEN" \
-            --data '{ "body": "[Passed] Check [Github Action results](https://github.com/kevindweb/openNetVM/actions/runs/$GITHUB_RUN_ID)" }'
+            --data "{ 'body': \"[Passed] Check [Github Action results](https://github.com/kevindweb/openNetVM/actions/runs/$GITHUB_RUN_ID)\" }"
