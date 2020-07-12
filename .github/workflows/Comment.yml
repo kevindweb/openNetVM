@@ -26,7 +26,7 @@ jobs:
             $URL \	
             -H "Content-Type: application/json" \	
             -H "Authorization: token $GITHUB_TOKEN" \	
-            --data "{ \"body\": \"[Passed] Authorization [Github Action results](https://github.com/kevindweb/openNetVM/actions/runs/$GITHUB_RUN_ID)\" }"
+            --data "{ \"body\": \"[Failed] Authorization [Github Action results](https://github.com/kevindweb/openNetVM/actions/runs/$GITHUB_RUN_ID)\" }"
           exit 1
       - name: Authenticated Correctly
         if: steps.check.outputs.authorized == 'true'	
