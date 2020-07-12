@@ -3,13 +3,13 @@ on:
   pull_request:	
     types: [opened]	
   issue_comment:	
-    types: [created]	
+    types: [created]
 jobs:	
   deploypr:	
     runs-on: ubuntu-latest	
     steps:	
-      - uses: kevindweb/authorization@master	
-        id: check	
+      - name: Check Authorization
+        uses: kevindweb/authorization@master	
         with:	
           auth_url: 'nimbus.seas.gwu.edu/ci-test/auth'	
         env:
@@ -17,26 +17,9 @@ jobs:
           USER: '${{ github.actor }}'
       - name: Check Unauthenticated
         if: steps.check.outputs.authorized == 'false'
-        env:	
-          URL: ${{ github.event.issue.comments_url }}	
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |	
-          curl \	
-            -X POST \	
-            $URL \	
-            -H "Content-Type: application/json" \	
-            -H "Authorization: token $GITHUB_TOKEN" \	
-            --data "{ \"body\": \"[Failed] Authorization [Github Action results](https://github.com/kevindweb/openNetVM/actions/runs/$GITHUB_RUN_ID)\" }"
-          exit 1
+        run: exit 1
       - name: Authenticated Correctly
-        if: steps.check.outputs.authorized == 'true'	
         env:	
           URL: ${{ github.event.issue.comments_url }}	
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}	
-        run: |	
-          curl \	
-            -X POST \	
-            $URL \	
-            -H "Content-Type: application/json" \	
-            -H "Authorization: token $GITHUB_TOKEN" \	
-            --data "{ \"body\": \"[Passed] Authorization [Github Action results](https://github.com/kevindweb/openNetVM/actions/runs/$GITHUB_RUN_ID)\" }"
+        run: echo "Got here!"
