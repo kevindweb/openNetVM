@@ -1,17 +1,17 @@
 name: 'ONVM CI'	
-on:	
-  pull_request:	
-    types: [opened]	
-  issue_comment:	
+on:
+  pull_request:
+    types: [opened]
+  issue_comment:
     types: [created]
-jobs:	
-  deploypr:	
-    runs-on: ubuntu-latest	
-    steps:	
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    steps:
       - name: Check Authorization
-        uses: kevindweb/authorization@master	
-        with:	
-          auth_url: 'nimbus.seas.gwu.edu/ci-test/auth'	
+        uses: kevindweb/authorization@master
+        with:
+          auth_url: 'http//nimbus.seas.gwu.edu/ci-test/auth'
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           USER: '${{ github.actor }}'
@@ -19,7 +19,7 @@ jobs:
         if: steps.check.outputs.authorized == 'false'
         run: exit 1
       - name: Authenticated Correctly
-        env:	
-          URL: ${{ github.event.issue.comments_url }}	
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}	
+        env:
+          URL: ${{ github.event.issue.comments_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: echo "Got here!"
