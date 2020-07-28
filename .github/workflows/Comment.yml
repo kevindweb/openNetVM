@@ -11,7 +11,7 @@ jobs:
       - name: Check Authorization
         uses: kevindweb/authorization@master
         with:
-          auth_url: 'http//nimbus.seas.gwu.edu/ci-test/auth'
+          auth_url: 'http://nimbus.seas.gwu.edu/ci-test/auth'
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           USER: '${{ github.actor }}'
