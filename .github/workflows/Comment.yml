@@ -13,11 +13,15 @@ jobs:
         with:
           auth_url: 'http://nimbus.seas.gwu.edu/ci-test/auth'
         env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USER: '${{ github.actor }}'
-      - name: Check Unauthenticated
+      - name: Comment Unauthenticated
         if: steps.check.outputs.authorized == 'false'
-        run: exit 1
+        uses: mshick/add-pr-comment@v1
+        with:
+          message: Unauthenticated
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Authenticated Correctly
         env:
           URL: ${{ github.event.issue.comments_url }}
