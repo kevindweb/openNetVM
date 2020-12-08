@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  # Define the network function to be scaled
+  nf:
+    image: "sdnfv/opennetvm"
+    volumes:
+      - /var/run:/var/run
+      - /dev/shm:/dev/shm
+      - /dev/hugepages:/dev/hugepages
+      - /users/kdeems/openNetVM:/openNetVM
+    privileged: true
+    hostname: 'nf'
+    working_dir: /openNetVM
+    # command: /bin/bash -c "./examples/start_nf.sh basic_monitor 1"
+    command: /bin/bash -c "./examples/start_nf.sh speed_tester 1 -d 1"

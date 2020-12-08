@@ -150,8 +150,8 @@ onvm_nflib_parse_args(int argc, char *argv[], struct onvm_nf_init_cfg *nf_init_c
  * Check if there are packets in this NF's RX Queue and process them
  */
 static inline uint16_t
-onvm_nflib_dequeue_packets(void **pkts, struct onvm_nf_local_ctx *nf_local_ctx,
-                           nf_pkt_handler_fn handler) __attribute__((always_inline));
+onvm_nflib_dequeue_packets(void **pkts, struct onvm_nf_local_ctx *nf_local_ctx, nf_pkt_handler_fn handler)
+    __attribute__((always_inline));
 
 /*
  * Check if there is a message available for this NF and process it
@@ -248,7 +248,7 @@ onvm_nflib_get_nfpool_hashmap(void);
 
 /**
  * Function to initialize the semaphore used for pool nf's
- */ 
+ */
 void
 init_pool_info(uint16_t instance_id);
 
@@ -258,7 +258,7 @@ struct onvm_nf_local_ctx *
 onvm_nflib_init_nf_local_ctx(void) {
         struct onvm_nf_local_ctx *nf_local_ctx;
 
-        nf_local_ctx = (struct onvm_nf_local_ctx*)calloc(1, sizeof(struct onvm_nf_local_ctx));
+        nf_local_ctx = (struct onvm_nf_local_ctx *)calloc(1, sizeof(struct onvm_nf_local_ctx));
         if (nf_local_ctx == NULL)
                 rte_exit(EXIT_FAILURE, "Failed to allocate memory for NF context\n");
 
@@ -276,7 +276,7 @@ struct onvm_nf_function_table *
 onvm_nflib_init_nf_function_table(void) {
         struct onvm_nf_function_table *nf_function_table;
 
-        nf_function_table = (struct onvm_nf_function_table*)calloc(1, sizeof(struct onvm_nf_function_table));
+        nf_function_table = (struct onvm_nf_function_table *)calloc(1, sizeof(struct onvm_nf_function_table));
         if (nf_function_table == NULL)
                 rte_exit(EXIT_FAILURE, "Failed to allocate memory for NF context\n");
 
@@ -288,8 +288,9 @@ onvm_nflib_request_lpm(struct lpm_request *lpm_req) {
         struct onvm_nf_msg *request_message;
         int ret;
 
-        ret = rte_mempool_get(nf_msg_pool, (void **) (&request_message));
-        if (ret != 0) return ret;
+        ret = rte_mempool_get(nf_msg_pool, (void **)(&request_message));
+        if (ret != 0)
+                return ret;
 
         request_message->msg_type = MSG_REQUEST_LPM_REGION;
         request_message->msg_data = lpm_req;
@@ -301,7 +302,7 @@ onvm_nflib_request_lpm(struct lpm_request *lpm_req) {
         }
 
         lpm_req->status = NF_WAITING_FOR_LPM;
-        for (; lpm_req->status == (uint16_t) NF_WAITING_FOR_LPM;) {
+        for (; lpm_req->status == (uint16_t)NF_WAITING_FOR_LPM;) {
                 sleep(1);
         }
 
@@ -342,12 +343,12 @@ onvm_nflib_request_ft(struct rte_hash_parameters *ipv4_hash_params) {
         struct ft_request *ft_req;
         int ret;
 
-        ft_req = (struct ft_request *) rte_malloc(NULL, sizeof(struct ft_request), 0);
+        ft_req = (struct ft_request *)rte_malloc(NULL, sizeof(struct ft_request), 0);
         if (!ft_req) {
                 return -1;
         }
 
-        ret = rte_mempool_get(nf_msg_pool, (void **) (&request_message));
+        ret = rte_mempool_get(nf_msg_pool, (void **)(&request_message));
         if (ret != 0) {
                 rte_mempool_put(nf_msg_pool, request_message);
                 return ret;
@@ -365,7 +366,7 @@ onvm_nflib_request_ft(struct rte_hash_parameters *ipv4_hash_params) {
         }
 
         ft_req->status = NF_WAITING_FOR_FT;
-        for (; ft_req->status == (uint16_t) NF_WAITING_FOR_FT;) {
+        for (; ft_req->status == (uint16_t)NF_WAITING_FOR_FT;) {
                 sleep(1);
         }
 
@@ -591,12 +592,13 @@ onvm_nflib_start_nf(struct onvm_nf_local_ctx *nf_local_ctx, struct onvm_nf_init_
                 RTE_LOG(INFO, APP, "Packet limit (rx) set to %u\n", nf->flags.pkt_limit);
 
         /*
-         * Allow this for cases when there is not enough cores and using 
+         * Allow this for cases when there is not enough cores and using
          * the shared core mode is not an option
          */
         if (ONVM_CHECK_BIT(nf->flags.init_options, SHARE_CORE_BIT) && !ONVM_NF_SHARE_CORES)
-               RTE_LOG(WARNING, APP, "Requested shared core allocation but shared core mode is NOT "
-                                     "enabled, this will hurt performance, proceed with caution\n");
+                RTE_LOG(WARNING, APP,
+                        "Requested shared core allocation but shared core mode is NOT "
+                        "enabled, this will hurt performance, proceed with caution\n");
 
         RTE_LOG(INFO, APP, "Finished Process Init.\n");
 
@@ -641,7 +643,7 @@ onvm_nflib_thread_main_loop(void *arg) {
                 nf->function_table->setup(nf_local_ctx);
 
         start_time = rte_get_tsc_cycles();
-        for (;rte_atomic16_read(&nf_local_ctx->keep_running) && rte_atomic16_read(&main_nf_local_ctx->keep_running);) {
+        for (; rte_atomic16_read(&nf_local_ctx->keep_running) && rte_atomic16_read(&main_nf_local_ctx->keep_running);) {
                 /* Possibly sleep if in shared core mode, otherwise continue */
                 if (ONVM_NF_SHARE_CORES) {
                         if (unlikely(rte_ring_count(nf->rx_q) == 0) && likely(rte_ring_count(nf->msg_q) == 0)) {
@@ -655,7 +657,7 @@ onvm_nflib_thread_main_loop(void *arg) {
                 }
 
                 nb_pkts_added =
-                        onvm_nflib_dequeue_packets((void **)pkts, nf_local_ctx, nf->function_table->pkt_handler);
+                    onvm_nflib_dequeue_packets((void **)pkts, nf_local_ctx, nf->function_table->pkt_handler);
 
                 if (likely(nb_pkts_added > 0)) {
                         onvm_pkt_process_tx_batch(nf->nf_tx_mgr, pkts, nb_pkts_added, nf);
@@ -669,16 +671,17 @@ onvm_nflib_thread_main_loop(void *arg) {
                 if (nf->function_table->user_actions != ONVM_NO_CALLBACK) {
                         rte_atomic16_set(&nf_local_ctx->keep_running,
                                          !(*nf->function_table->user_actions)(nf_local_ctx) &&
-                                         rte_atomic16_read(&nf_local_ctx->keep_running));
+                                             rte_atomic16_read(&nf_local_ctx->keep_running));
                 }
 
-                if (nf->flags.time_to_live && unlikely((rte_get_tsc_cycles() - start_time) *
-                                          TIME_TTL_MULTIPLIER / rte_get_timer_hz() >= nf->flags.time_to_live)) {
+                if (nf->flags.time_to_live &&
+                    unlikely((rte_get_tsc_cycles() - start_time) * TIME_TTL_MULTIPLIER / rte_get_timer_hz() >=
+                             nf->flags.time_to_live)) {
                         printf("Time to live exceeded, shutting down\n");
                         rte_atomic16_set(&nf_local_ctx->keep_running, 0);
                 }
-                if (nf->flags.pkt_limit && unlikely(nf->stats.rx >= (uint64_t)nf->flags.pkt_limit *
-                                                                    PKT_TTL_MULTIPLIER)) {
+                if (nf->flags.pkt_limit &&
+                    unlikely(nf->stats.rx >= (uint64_t)nf->flags.pkt_limit * PKT_TTL_MULTIPLIER)) {
                         printf("Packet limit exceeded, shutting down\n");
                         rte_atomic16_set(&nf_local_ctx->keep_running, 0);
                 }
@@ -744,7 +747,7 @@ onvm_nflib_handle_msg(struct onvm_nf_msg *msg, struct onvm_nf_local_ctx *nf_loca
                         break;
                 case MSG_SCALE:
                         RTE_LOG(INFO, APP, "Received scale message...\n");
-                        onvm_nflib_scale((struct onvm_nf_scale_info*)msg->msg_data);
+                        onvm_nflib_scale((struct onvm_nf_scale_info *)msg->msg_data);
                         break;
                 case MSG_FROM_NF:
                         RTE_LOG(INFO, APP, "Received MSG from other NF\n");
@@ -772,7 +775,7 @@ onvm_nflib_send_msg_to_nf(uint16_t dest, void *msg_data) {
         int ret;
         struct onvm_nf_msg *msg;
 
-        ret = rte_mempool_get(nf_msg_pool, (void**)(&msg));
+        ret = rte_mempool_get(nf_msg_pool, (void **)(&msg));
         if (ret != 0) {
                 RTE_LOG(INFO, APP, "Oh the huge manatee! Unable to allocate msg from pool :(\n");
                 return ret;
@@ -781,7 +784,7 @@ onvm_nflib_send_msg_to_nf(uint16_t dest, void *msg_data) {
         msg->msg_type = MSG_FROM_NF;
         msg->msg_data = msg_data;
 
-        return rte_ring_enqueue(nfs[dest].msg_q, (void*)msg);
+        return rte_ring_enqueue(nfs[dest].msg_q, (void *)msg);
 }
 
 void
@@ -1023,7 +1026,7 @@ onvm_nflib_get_nfpool_hashmap(void) {
                 return map;
         }
 
-        ipv4_hash_params = (struct rte_hash_parameters *) rte_malloc(NULL, sizeof(struct rte_hash_parameters), 0);
+        ipv4_hash_params = (struct rte_hash_parameters *)rte_malloc(NULL, sizeof(struct rte_hash_parameters), 0);
         if (!ipv4_hash_params) {
                 return NULL;
         }
@@ -1235,7 +1238,7 @@ onvm_nflib_parse_args(int argc, char *argv[], struct onvm_nf_init_cfg *nf_init_c
         int service_id = -1;
 
         opterr = 0;
-        while ((c = getopt (argc, argv, "n:r:t:l:ms")) != -1)
+        while ((c = getopt(argc, argv, "n:r:t:l:ms")) != -1)
                 switch (c) {
                         case 'n':
                                 initial_instance_id = (uint16_t)strtoul(optarg, NULL, 10);
@@ -1248,22 +1251,22 @@ onvm_nflib_parse_args(int argc, char *argv[], struct onvm_nf_init_cfg *nf_init_c
                                         service_id = -1;
                                 break;
                         case 't':
-                                nf_init_cfg->time_to_live = (uint16_t) strtoul(optarg, NULL, 10);
+                                nf_init_cfg->time_to_live = (uint16_t)strtoul(optarg, NULL, 10);
                                 if (nf_init_cfg->time_to_live == 0) {
                                         fprintf(stderr, "Time to live argument can't be 0\n");
                                         return -1;
                                 }
                                 break;
                         case 'l':
-                                nf_init_cfg->pkt_limit = (uint16_t) strtoul(optarg, NULL, 10);
+                                nf_init_cfg->pkt_limit = (uint16_t)strtoul(optarg, NULL, 10);
                                 if (nf_init_cfg->pkt_limit == 0) {
                                         fprintf(stderr, "Packet time to live argument can't be 0\n");
                                         return -1;
                                 }
                                 break;
                         case 'm':
-                                nf_init_cfg->init_options = ONVM_SET_BIT(nf_init_cfg->init_options,
-                                                                         MANUAL_CORE_ASSIGNMENT_BIT);
+                                nf_init_cfg->init_options =
+                                    ONVM_SET_BIT(nf_init_cfg->init_options, MANUAL_CORE_ASSIGNMENT_BIT);
                                 break;
                         case 's':
                                 nf_init_cfg->init_options = ONVM_SET_BIT(nf_init_cfg->init_options, SHARE_CORE_BIT);
@@ -1303,7 +1306,7 @@ onvm_nflib_terminate_children(struct onvm_nf *nf) {
                                 continue;
 
                         if (!onvm_nf_is_valid(&nfs[i]))
-                               continue;
+                                continue;
 
                         /* Wake up the child if its sleeping */
                         if (ONVM_NF_SHARE_CORES && rte_atomic16_read(nfs[i].shared_core.sleep_state) == 1) {
@@ -1311,8 +1314,8 @@ onvm_nflib_terminate_children(struct onvm_nf *nf) {
                                 sem_post(nfs[i].shared_core.nf_mutex);
                         }
                 }
-                RTE_LOG(INFO, APP, "NF %d: Waiting for %d children to exit\n",
-                        nf->instance_id, rte_atomic16_read(&nf->thread_info.children_cnt));
+                RTE_LOG(INFO, APP, "NF %d: Waiting for %d children to exit\n", nf->instance_id,
+                        rte_atomic16_read(&nf->thread_info.children_cnt));
                 sleep(NF_TERM_WAIT_TIME);
                 iter_cnt++;
         }
@@ -1409,7 +1412,7 @@ init_shared_core_mode_info(uint16_t instance_id) {
         if ((shmid = shmget(key, SHMSZ, 0666)) < 0)
                 rte_exit(EXIT_FAILURE, "Unable to locate the segment for NF %d\n", instance_id);
 
-        if ((shm = shmat(shmid, NULL, 0)) == (char *) -1)
+        if ((shm = shmat(shmid, NULL, 0)) == (char *)-1)
                 rte_exit(EXIT_FAILURE, "Can not attach the shared segment to the NF space for NF %d\n", instance_id);
 
         nf->shared_core.sleep_state = (rte_atomic16_t *)shm;
@@ -1435,9 +1438,10 @@ onvm_nflib_stats_summary_output(uint16_t id) {
         const char clr[] = {27, '[', '2', 'J', '\0'};
         const char topLeft[] = {27, '[', '1', ';', '1', 'H', '\0'};
         const char *csv_suffix = "_stats.csv";
-        const char *csv_stats_headers = "NF tag, NF instance ID, NF service ID, NF assigned core, RX total,"
-                                        "RX total dropped, TX total, TX total dropped, NF sent out, NF sent to NF,"
-                                        "NF dropped, NF next, NF tx buffered, NF tx buffered, NF tx returned";
+        const char *csv_stats_headers =
+            "NF tag, NF instance ID, NF service ID, NF assigned core, RX total,"
+            "RX total dropped, TX total, TX total dropped, NF sent out, NF sent to NF,"
+            "NF dropped, NF next, NF tx buffered, NF tx buffered, NF tx returned";
         const uint64_t rx = nfs[id].stats.rx;
         const uint64_t rx_drop = nfs[id].stats.rx_drop;
         const uint64_t tx = nfs[id].stats.tx;
@@ -1547,7 +1551,7 @@ onvm_nflib_pool_enqueue(const char *nf_name, const char *nf_args, int eq_num, in
 
         global_nf_name = rte_calloc(NULL, 1, 64, 0);
         snprintf(global_nf_name, 64, "%s", nf_name);
-        ret = rte_hash_lookup_data(pool_map, global_nf_name, (void *) &pool_ctx);
+        ret = rte_hash_lookup_data(pool_map, global_nf_name, (void *)&pool_ctx);
         if (ret < 0) {
                 pool_ctx = rte_malloc(NULL, sizeof(struct onvm_nf_pool_ctx), 0);
                 rte_ring_request = rte_malloc(NULL, sizeof(struct ring_request), 0);
@@ -1574,7 +1578,7 @@ onvm_nflib_pool_enqueue(const char *nf_name, const char *nf_args, int eq_num, in
                 pool_ctx->pool_ring = nf_pool_ring;
                 pool_ctx->args = nf_args;
                 pool_ctx->nf_name = nf_name;
-                if (rte_hash_add_key_data(pool_map, global_nf_name, (void *) pool_ctx) != 0) {
+                if (rte_hash_add_key_data(pool_map, global_nf_name, (void *)pool_ctx) != 0) {
                         RTE_LOG(INFO, APP, "Could not add to hash table\n");
                         return -1;
                 }
@@ -1607,7 +1611,7 @@ onvm_nflib_fork_pool_nfs(const char *nf_name, const char *nf_args, struct rte_ri
                         count_sleep++;
                         sleep(1);
                 }
-                if (rte_ring_enqueue(nf_pool_ring, (void *) spawned_nf) != 0) {
+                if (rte_ring_enqueue(nf_pool_ring, (void *)spawned_nf) != 0) {
                         RTE_LOG(INFO, APP, "Failed to enqueue spawned NF into the ring\n");
                         break;
                 }
@@ -1628,7 +1632,7 @@ onvm_nflib_pool_dequeue(const char *nf_name, int dq_num, int refill) {
 
         global_nf_name = rte_calloc(NULL, 1, 64, 0);
         snprintf(global_nf_name, 64, "%s", nf_name);
-        ret = rte_hash_lookup_data(pool_map, global_nf_name, (void *) &pool_ctx);
+        ret = rte_hash_lookup_data(pool_map, global_nf_name, (void *)&pool_ctx);
         if (ret < 0) {
                 RTE_LOG(INFO, APP, "NF does not have an associated pool\n");
                 return -1;
@@ -1636,7 +1640,7 @@ onvm_nflib_pool_dequeue(const char *nf_name, int dq_num, int refill) {
 
         nf_pool_ring = pool_ctx->pool_ring;
         for (i = 0; i < dq_num; i++) {
-                if (rte_ring_dequeue(nf_pool_ring, (void *) &dequeued_nf) != 0) {
+                if (rte_ring_dequeue(nf_pool_ring, (void *)&dequeued_nf) != 0) {
                         RTE_LOG(INFO, APP, "Could not dequeue %s, ring is empty\n", nf_name);
                         break;
                 }
@@ -1653,8 +1657,8 @@ onvm_nflib_pool_dequeue(const char *nf_name, int dq_num, int refill) {
 
         if (rte_ring_count(nf_pool_ring) < pool_ctx->refill) {
                 total_refill = pool_ctx->refill - rte_ring_count(nf_pool_ring);
-                spawned_nf_count = onvm_nflib_fork_pool_nfs(pool_ctx->nf_name, pool_ctx->args,
-                                                            nf_pool_ring, total_refill);
+                spawned_nf_count =
+                    onvm_nflib_fork_pool_nfs(pool_ctx->nf_name, pool_ctx->args, nf_pool_ring, total_refill);
                 RTE_LOG(INFO, APP, "Refilled NF pool with %d NF's\n", spawned_nf_count);
         }
 
@@ -1681,13 +1685,14 @@ onvm_nflib_fork(const char *nf_name, const char *nf_args) {
                 return NULL;
         }
         if (fork() == 0) {
-                char *command;
+                // char *command;
+                const char *command = "docker start a44acd694e2ec253960d4365605866466390720840f163718024dca740803d7c";
                 int ret;
-                ret = asprintf(&command, "%s %s %s", go_script_path, nf_name, nf_args);
-                if (ret < 0) {
-                        RTE_LOG(INFO, APP, "Could not allocate command string for bash script call\n");
-                        return NULL;
-                }
+                // ret = asprintf(&command, "%s %s %s", go_script_path, nf_name, nf_args);
+                // if (ret < 0) {
+                //         RTE_LOG(INFO, APP, "Could not allocate command string for bash script call\n");
+                //         return NULL;
+                // }
                 ret = system(command);
                 if (ret < 0) {
                         RTE_LOG(INFO, APP, "Could not execute NF go script\n");
