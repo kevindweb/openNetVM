@@ -94,6 +94,8 @@ static uint8_t measure_latency = 0;
 static uint32_t latency_packets = 0;
 static uint64_t total_latency = 0;
 
+static struct onvm_flow_entry *flow_entry = NULL;
+
 void
 nf_setup(struct onvm_nf_local_ctx *nf_local_ctx);
 
@@ -240,9 +242,19 @@ do_stats_display(struct rte_mbuf *pkt) {
         printf("\n\n");
 }
 
+static void
+nf_setup(__attribute__((unused)) struct onvm_nf_local_ctx *nf_local_ctx) {
+        flow_entry = (struct onvm_flow_entry *)rte_calloc(NULL, 1, sizeof(struct onvm_flow_entry), 0);
+        if (flow_entry == NULL) {
+                rte_exit(EXIT_FAILURE, "Unable to allocate flow entry\n");
+        }
+}
+
 static int
 packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                __attribute__((unused)) struct onvm_nf_local_ctx *nf_local_ctx) {
+        static uint32_t counter = 0;
+        int ret;
         /* TODO:
         Is packet is in a new flow?
                 a. yes
@@ -255,100 +267,35 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                         - assign to that containerized NF
         */
 
-        static uint32_t counter = 0;
-        if (counter++ == print_delay) {
+        if (!onvm_pkt_is_ipv4(pkt)) {
+                meta->action = ONVM_NF_ACTION_DROP;
+                return 0;
+        }
+
+        if (++counter == print_delay) {
                 do_stats_display(pkt);
                 counter = 0;
         }
 
-        if (ONVM_CHECK_BIT(meta->flags, SPEED_TESTER_BIT)) {
-                /* one of our fake pkts to forward */
-                meta->destination = destination;
-                meta->action = ONVM_NF_ACTION_TONF;
-                if (measure_latency && ONVM_CHECK_BIT(meta->flags, LATENCY_BIT)) {
-                        uint64_t curtime = rte_get_tsc_cycles();
-                        uint64_t *oldtime = (uint64_t *)(rte_pktmbuf_mtod(pkt, uint8_t *) + packet_size);
-                        if (*oldtime != 0) {
-                                total_latency += curtime - *oldtime;
-                                latency_packets++;
-                        }
-                        *oldtime = curtime;
-                }
+        struct onvm_ft_ipv4_5tuple key;
+        onvm_ft_fill_key(&key, pkt);
+        ret = onvm_ft_lookup_key(sdn_ft, &key, (char **)&flow_entry);
+        if (ret >= 0) {
+                // assign to
+                meta->action = ONVM_NF_ACTION_NEXT;
         } else {
-                /* Drop real incoming packets */
-                meta->action = ONVM_NF_ACTION_DROP;
+                ret = onvm_ft_add_key(sdn_ft, &key, (char **)&flow_entry);
+                if (ret < 0) {
+                        meta->action = ONVM_NF_ACTION_DROP;
+                        meta->destination = 0;
+                        return 0;
+                }
+                flow_entry->sc = onvm_sc_create();
+                onvm_sc_append_entry(flow_entry->sc, ONVM_NF_ACTION_TONF, destination);
+                meta->action = ONVM_NF_ACTION_TONF;
+                meta->destination = destination;
         }
         return 0;
-}
-
-/*
- * Generates fake packets or loads them from a pcap file
- */
-void
-nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
-        uint32_t i;
-        uint32_t pkts_generated;
-        struct rte_mempool *pktmbuf_pool;
-
-        pkts_generated = 0;
-        pktmbuf_pool = rte_mempool_lookup(PKTMBUF_POOL_NAME);
-        if (pktmbuf_pool == NULL) {
-                onvm_nflib_stop(nf_local_ctx);
-                rte_exit(EXIT_FAILURE, "Cannot find mbuf pool!\n");
-        }
-        /*  use default number of initial packets if -c has not been used */
-        packet_number = (use_custom_pkt_count ? packet_number : DEFAULT_PKT_NUM);
-        struct rte_mbuf *pkts[packet_number];
-
-        printf("Creating %u packets to send to %u\n", packet_number, destination);
-
-        for (i = 0; i < packet_number; ++i) {
-                struct onvm_pkt_meta *pmeta;
-                struct rte_ether_hdr *ehdr;
-                int j;
-
-                struct rte_mbuf *pkt = rte_pktmbuf_alloc(pktmbuf_pool);
-                if (pkt == NULL) {
-                        printf("Failed to allocate packets\n");
-                        break;
-                }
-
-                /*set up ether header and set new packet size*/
-                ehdr = (struct rte_ether_hdr *)rte_pktmbuf_append(pkt, packet_size);
-
-                /*using manager mac addr for source
-                 *using input string for dest addr
-                 */
-                if (onvm_get_macaddr(0, &ehdr->s_addr) == -1) {
-                        RTE_LOG(INFO, APP, "Using fake MAC address\n");
-                        onvm_get_fake_macaddr(&ehdr->s_addr);
-                }
-                for (j = 0; j < RTE_ETHER_ADDR_LEN; ++j) {
-                        ehdr->d_addr.addr_bytes[j] = d_addr_bytes[j];
-                }
-                ehdr->ether_type = LOCAL_EXPERIMENTAL_ETHER;
-
-                pmeta = onvm_get_pkt_meta(pkt);
-                pmeta->destination = destination;
-                pmeta->action = ONVM_NF_ACTION_TONF;
-                pmeta->flags = ONVM_SET_BIT(0, SPEED_TESTER_BIT);
-                pkt->hash.rss = i;
-                pkt->port = 0;
-
-                if (measure_latency &&
-                    (packet_number < DEFAULT_LAT_PKT_NUM || i % (packet_number / DEFAULT_LAT_PKT_NUM) == 0)) {
-                        pmeta->flags |= ONVM_SET_BIT(0, LATENCY_BIT);
-                        uint64_t *ts = (uint64_t *)rte_pktmbuf_append(pkt, sizeof(uint64_t));
-                        *ts = 0;
-                }
-
-                /* New packet generated successfully */
-                pkts[i] = pkt;
-                pkts_generated++;
-        }
-        onvm_nflib_return_pkt_bulk(nf_local_ctx->nf, pkts, pkts_generated);
-
-        packet_number = pkts_generated;
 }
 
 int
