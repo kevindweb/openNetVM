@@ -39,35 +39,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-<<<<<<< HEAD
-      uses: actions/checkout@v1
-    
-=======
       uses: actions/checkout@v2
->>>>>>> upstream/master
     - name: Set up Python 3.7
       uses: actions/setup-python@v1
       with:
          python-version: 3.7
-<<<<<<< HEAD
-    
-    - name: Install Requirements
-      run: |
-        pip install pylint==2.4.4
-    
-    - name: Run Pylint
-      run: |
-        chmod +x style/get-user-lint.sh
-        style/get-user-lint.sh python
-  
-  Shell:
-    runs-on: ubuntu-latest
-    steps: 
-      
-      - name: Checkout
-        uses: actions/checkout@v1
-      
-=======
     - name: Install Requirements
       run: |
         pip install pylint==2.4.4
@@ -80,35 +56,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
->>>>>>> upstream/master
       - name: Install Requirements
         run: |
          sudo apt install xz-utils
          wget -qO- "https://github.com/koalaman/shellcheck/releases/download/v0.7.0/shellcheck-v0.7.0.linux.x86_64.tar.xz" | tar -xJv
          sudo cp "shellcheck-v0.7.0/shellcheck" /usr/bin/
-<<<<<<< HEAD
-      
-      - name: User's Lint
-        run: |
-         chmod +x style/get-user-lint.sh
-         style/get-user-lint.sh shell
-  
-  Comment:
-    needs: [Branch,C,Cppcheck,Python,Shell]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Add Comment
-        uses: mshick/add-pr-comment@v1
-        with:
-          message: |
-            **All Lint Tests Passed!🚀**
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-=======
       - name: User's Lint
         run: |
          chmod +x style/run-lint.sh
          style/run-lint.sh shell
->>>>>>> upstream/master
