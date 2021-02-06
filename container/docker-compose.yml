@@ -5,6 +5,7 @@ services:
     image: "ubuntu:20.04"
     volumes:
       - /local/onvm/openNetVM/container:/container
+      - /tmp/containers/beepboopbop
     hostname: 'skeleton'
     working_dir: /container
     command: /bin/bash -c "./test.sh"
