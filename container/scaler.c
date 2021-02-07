@@ -11,8 +11,14 @@ int DONE = 0;
 
 // next container ID (auto-incremented)
 int NEXT_CONTAINER = 0;
+
+// number of "warm" containers (haven't been assigned a flow)
+int NUM_WARM_CONTAINERS = 0;
+
+// service name for the docker containers
 const char* SERVICE = "skeleton";
 
+/* scaler runs to maintain warm containers and garbage collect old ones */
 void*
 scaler(void* in) {
         while (!DONE) {
@@ -44,7 +50,6 @@ num_running_containers() {
         while (fgets(container_id, id_hash_length, fp) != NULL) {
                 // remove new line character
                 container_id[id_hash_length - 2] = '\0';
-                printf("Container ID stuffff (length %zu): %s\n", strlen(container_id), container_id);
                 num++;
         }
 
@@ -53,7 +58,7 @@ num_running_containers() {
 
 /* Initialize warm docker containers, with unique named pipe volumes */
 int
-init_docker(int retry) {
+init_container(int retry) {
         /*
          * Set up named pipe
          * Initialize docker container
@@ -70,7 +75,7 @@ init_docker(int retry) {
                 // failed to create docker container
                 if (retry == 0) {
                         // retry once
-                        return init_docker(1);
+                        return init_container(1);
                 }
 
                 // retried too many times with failure
@@ -87,14 +92,27 @@ init_docker(int retry) {
 int
 scale_docker(int scale) {
         for (int i = 0; i < scale; i++) {
-                if (init_docker(0) == -1) {
+                if (init_container(0) == -1) {
                         // failed to instantiate container
                         printf("Couldn't init container %d\n", (i + 1));
                         return -1;
                 }
         }
 
+        // increment number of warm containers
+        NUM_WARM_CONTAINERS += scale;
+
         return 0;
+}
+
+/* Garbage collector helper to kill container by ID */
+int
+kill_container_id(char* hash_id) {
+        char docker_call[36];
+        // docker_call string is 36 characters with a 12 character container hash id + \0
+        // 36 characters -> /bin/sudo docker rm -f <container hash id>\0
+        sprintf(docker_call, "/bin/sudo docker rm -f %s", hash_id);
+        return system(docker_call);
 }
 
 /* Helper for testing, kill the docker service */
