@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
-// globals to communicate between threads
+// START globals section
 
 // tell scaler thread to stop executing
 int DONE = 0;
@@ -18,17 +18,22 @@ int NUM_WARM_CONTAINERS = 0;
 // service name for the docker containers
 const char* SERVICE = "skeleton";
 
-/* scaler runs to maintain warm containers and garbage collect old ones */
-void*
-scaler(void* in) {
-        while (!DONE) {
-                // maintain the correct number of "warm" containers
-                // garbage collect
-                // printf("Inside thread\n");
-                sleep(1);
-        }
-        return NULL;
-}
+// docker command to start container (sprintf used to insert ID variable)
+const char* COMMAND =
+    "sudo docker run \
+    --name='%s%d' \
+    --hostname='%s%d' \
+    --volume=/tmp/container/%d:/tmp/pipe \
+    --volume=/local/onvm/openNetVM/container:/container \
+    --detach \
+    ubuntu:20.04 \
+    /bin/bash -c './container/test.sh'";
+
+// only a global variable for testing between threads
+// we will eventually put new container IDs into a thread-safe linked list
+char container_id[13];
+
+// END globals section
 
 /* API Calls below */
 /* Return the number of containers up in docker-compose */
@@ -53,6 +58,9 @@ num_running_containers() {
                 num++;
         }
 
+        // close file descriptor
+        pclose(fp);
+
         return num;
 }
 
@@ -64,27 +72,34 @@ init_container(int retry) {
          * Initialize docker container
          * Place container ID in the shared struct of "warm" containers
          */
+        FILE* fp;
+        int id_hash_length = 13;
+        // char container_id[id_hash_length];
+        int stat;
+        char docker_call[300];
 
-        int ret;
-        char docker_call[100];
-
-        sprintf(docker_call, "./docker.sh -i %d", NEXT_CONTAINER);
-        ret = system(docker_call);
-
-        if (ret == -1) {
-                // failed to create docker container
-                if (retry == 0) {
-                        // retry once
-                        return init_container(1);
-                }
-
-                // retried too many times with failure
+        sprintf(docker_call, COMMAND, SERVICE, NEXT_CONTAINER, SERVICE, NEXT_CONTAINER, NEXT_CONTAINER);
+        fp = popen(docker_call, "r");
+        if (!fp) {
+                printf("Docker failed to execute\n");
                 return -1;
         }
+
+        // output should be one line (the container ID which is a 64 character hash with \0 terminator)
+        fgets(container_id, id_hash_length, fp);
+
+        // close popen
+        stat = pclose(fp);
+
+        if (WEXITSTATUS(stat) != 0) {
+                // docker command failed
+                return -1;
+        }
+
         // increment for next scale call
         NEXT_CONTAINER++;
 
-        // add this container ID to the warm pool list
+        // add this container ID to the warm pool Linked List
         return 0;
 }
 
@@ -123,10 +138,25 @@ kill_docker() {
         system(docker_call);
 }
 
+/* scaler runs to maintain warm containers and garbage collect old ones */
+void*
+scaler(void* in) {
+        while (!DONE) {
+                // maintain the correct number of "warm" containers
+                // garbage collect
+                // printf("Inside thread\n");
+                sleep(5);
+                printf("Scaler container kill: %s\n", container_id);
+                kill_container_id(container_id);
+        }
+        return NULL;
+}
+
 int
 test_done(pthread_t tid) {
         DONE = 1;
         pthread_join(tid, NULL);
+        printf("Containers running: %d\n", num_running_containers());
         kill_docker();
 
         return -1;
@@ -145,7 +175,7 @@ main(int argc, char* argv[]) {
         pthread_create(&tid, NULL, scaler, NULL);
 
         // run API tests
-        if (scale_docker(3) != 0) {
+        if (scale_docker(1) != 0) {
                 printf("Couldn't initialize containers\n");
                 return test_done(tid);
         }

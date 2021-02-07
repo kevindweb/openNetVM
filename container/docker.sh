@@ -25,4 +25,5 @@ sudo docker run \
     /bin/bash -c "${CMD}"
     # /bin/bash
 
-exit 0
+# exit with docker error code (0 on success)
+exit $?
