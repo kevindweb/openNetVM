@@ -35,57 +35,49 @@
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * l3switch.h - This application performs L3 forwarding.
+ * api_gateway.h - This application performs L3 forwarding.
  ********************************************************************/
 
 #include "onvm_flow_table.h"
 
-#ifndef __L3_SWITCH_H_
-#define __L3_SWICTH_H_
+#define NUM_CONTAINERS 4
+#define COMMENT_LEAD_CHAR	('#')
 
-/* Hash parameters. */
-#ifdef RTE_ARCH_64
-/* default to 4 million hash entries (approx) */
-#define L3FWD_HASH_ENTRIES              (1024*1024*4)
-#else
-/* 32-bit has less address-space for hugepage memory, limit to 1M entries */
-#define L3FWD_HASH_ENTRIES              (1024*1024*1)
-#endif
-
-#define HASH_ENTRY_NUMBER_DEFAULT       4
-#define NB_SOCKETS        8
+struct onvm_ft *em_tbl;
 
 /*Struct that holds all NF state information */
 struct state_info {
-        struct lpm_request *l3switch_req;
-        struct rte_lpm *lpm_tbl;
-        struct onvm_ft *em_tbl;
-        struct rte_ether_addr ports_eth_addr[RTE_MAX_ETHPORTS];
-        uint64_t port_statistics[RTE_MAX_ETHPORTS];
-        xmm_t val_eth[RTE_MAX_ETHPORTS];
-        uint64_t dest_eth_addr[RTE_MAX_ETHPORTS];
+        uint64_t statistics[NUM_CONTAINERS];
+        uint64_t dest_eth_addr[NUM_CONTAINERS];
         uint64_t packets_dropped;
         uint32_t print_delay;
-        uint32_t hash_entry_number;
-        int8_t l3fwd_lpm_on;
-        int8_t l3fwd_em_on;
+};
+
+#define FLOW_CLASSIFY_MAX_PRIORITY 8
+static struct{
+	const char *rule_ipv4_name;
+} parm_config;
+enum {
+	CB_FLD_SRC_ADDR,
+	CB_FLD_DST_ADDR,
+	CB_FLD_SRC_PORT,
+	CB_FLD_SRC_PORT_DLM,
+	CB_FLD_SRC_PORT_MASK,
+	CB_FLD_DST_PORT,
+	CB_FLD_DST_PORT_DLM,
+	CB_FLD_DST_PORT_MASK,
+	CB_FLD_PROTO,
+	CB_FLD_PRIORITY,
+	CB_FLD_NUM,
+};
+struct flow_classifier {
+	struct rte_flow_classifier *cls;
 };
 
 /* Function pointers for LPM or EM functionality. */
 
 int
-setup_lpm(struct state_info *stats);
-
-int
 setup_hash(struct state_info *stats);
 
 uint16_t
-lpm_get_ipv4_dst_port(void *ipv4_hdr, uint16_t portid, struct state_info *stats);
-
-uint16_t
-em_get_ipv4_dst_port(struct rte_mbuf *pkt, struct state_info *stats);
-
-int
-get_initialized_ports(uint8_t if_out);
-
-#endif // __L3_SWICTH_H_
+get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats);

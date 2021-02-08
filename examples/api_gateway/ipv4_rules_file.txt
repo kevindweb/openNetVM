@@ -1,0 +1,6 @@
+#file format:
+#src_ip/masklen dst_ip/masklen src_port : mask dst_port : mask proto/mask priority
+#
+2.2.2.3 2.2.2.7 32 : 0xffff 33 : 0xffff 17/0xff 0
+#error rules
+#9.8.7.6/8 192.168.0.36/8 10 : 0xffff 11 : 0xffff 6/0xfe 9

@@ -44,10 +44,10 @@ RTE_TARGET ?= $(RTE_TARGET)
 include $(RTE_SDK)/mk/rte.vars.mk
 
 # binary name
-APP = l3fwd
+APP = api_gateway
 
 # all source are stored in SRCS-y
-SRCS-y := l3fwd.c l3fwd_lpm.c l3fwd_em.c
+SRCS-y := api_gateway.c gateway_em.c
 
 # OpenNetVM path
 ONVM= $(SRCDIR)/../../onvm
