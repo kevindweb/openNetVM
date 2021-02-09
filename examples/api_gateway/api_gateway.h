@@ -42,6 +42,9 @@
 
 #define NUM_CONTAINERS 4
 
+/* This defines the maximum possible number entries in out flow table. */
+#define HASH_ENTRIES 100
+
 struct onvm_ft *em_tbl;
 
 /*Struct that holds all NF state information */

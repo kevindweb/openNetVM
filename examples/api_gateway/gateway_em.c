@@ -18,9 +18,7 @@
 #include "onvm_flow_table.h"
 #include "onvm_nflib.h"
 #include "onvm_pkt_helper.h"
-#include "flow_table_parser.h"
-
-#define HASH_ENTRIES 100
+#include "onvm_table_parser.h"
 
 uint16_t
 get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats) {
@@ -36,17 +34,17 @@ get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats) {
     int tbl_index = onvm_ft_lookup_key(em_tbl, &key, (char **)&data);
     if (tbl_index < 0)
             return -1;
-    dst = data->nf_dest;
+    dst = data->dest;
     return dst;
 }
 
 int
 setup_hash(struct state_info *stats) {
-    em_tbl = onvm_ft_create(HASH_ENTRIES, sizeof(struct ipv4_route));
+    em_tbl = onvm_ft_create(HASH_ENTRIES, sizeof(struct data));
     if (em_tbl == NULL) {
             printf("Unable to create flow table");
             return -1;
     }
-	add_rules("ipv4_rules_file.txt", stats->print_keys);
+	add_rules(em_tbl, "ipv4_rules_file.txt", stats->print_keys, ONVM_TABLE_EM);
     return 0;
 }
