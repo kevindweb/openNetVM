@@ -146,44 +146,30 @@ parse_ipv4_5tuple_rule(char *str, struct rte_eth_ntuple_filter *ntuple_filter)
 
 	ret = parse_ipv4_net(in[CB_FLD_DST_ADDR],
 			&ntuple_filter->dst_ip);
+	
+	if (strncmp(in[CB_FLD_SRC_PORT_DLM], cb_port_delim,
+			sizeof(cb_port_delim)) != 0)
+		return -EINVAL;
 
 	if (get_cb_field(&in[CB_FLD_SRC_PORT], &temp, 0, UINT16_MAX, 0))
 		return -EINVAL;
 	ntuple_filter->src_port = (uint16_t)temp;
 
-	if (strncmp(in[CB_FLD_SRC_PORT_DLM], cb_port_delim,
-			sizeof(cb_port_delim)) != 0)
-		return -EINVAL;
-
-	if (get_cb_field(&in[CB_FLD_SRC_PORT_MASK], &temp, 0, UINT16_MAX, 0))
-		return -EINVAL;
-	ntuple_filter->src_port_mask = (uint16_t)temp;
-
 	if (get_cb_field(&in[CB_FLD_DST_PORT], &temp, 0, UINT16_MAX, 0))
 		return -EINVAL;
 	ntuple_filter->dst_port = (uint16_t)temp;
 
-	if (strncmp(in[CB_FLD_DST_PORT_DLM], cb_port_delim,
+	if (strncmp(in[CB_FLD_SRC_PORT_DLM], cb_port_delim,
 			sizeof(cb_port_delim)) != 0)
 		return -EINVAL;
 
-	if (get_cb_field(&in[CB_FLD_DST_PORT_MASK], &temp, 0, UINT16_MAX, 0))
-		return -EINVAL;
-	ntuple_filter->dst_port_mask = (uint16_t)temp;
-
-	if (get_cb_field(&in[CB_FLD_PROTO], &temp, 0, UINT8_MAX, '/'))
-		return -EINVAL;
-	ntuple_filter->proto = (uint8_t)temp;
-
 	if (get_cb_field(&in[CB_FLD_PROTO], &temp, 0, UINT8_MAX, 0))
 		return -EINVAL;
-	ntuple_filter->proto_mask = (uint8_t)temp;
+	ntuple_filter->proto = (uint8_t)temp;
 
 	if (get_cb_field(&in[CB_FLD_PRIORITY], &temp, 0, UINT16_MAX, 0))
 		return -EINVAL;
 	ntuple_filter->priority = (uint16_t)temp;
-	if (ntuple_filter->priority > FLOW_CLASSIFY_MAX_PRIORITY)
-		ret = -EINVAL;
 
 	return ret;
 }
@@ -251,6 +237,7 @@ add_rules(const char *rule_path, struct flow_classifier *cls_app)
         key.src_port = ntuple_filter.src_port;
         key.proto = ntuple_filter.proto;
 
+		_onvm_ft_print_key(&key);
 	}
 
 	fclose(fh);

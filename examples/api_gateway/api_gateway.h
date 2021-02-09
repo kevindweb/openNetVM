@@ -60,12 +60,10 @@ static struct{
 enum {
 	CB_FLD_SRC_ADDR,
 	CB_FLD_DST_ADDR,
-	CB_FLD_SRC_PORT,
 	CB_FLD_SRC_PORT_DLM,
-	CB_FLD_SRC_PORT_MASK,
+	CB_FLD_SRC_PORT,
 	CB_FLD_DST_PORT,
 	CB_FLD_DST_PORT_DLM,
-	CB_FLD_DST_PORT_MASK,
 	CB_FLD_PROTO,
 	CB_FLD_PRIORITY,
 	CB_FLD_NUM,
@@ -81,3 +79,6 @@ setup_hash(struct state_info *stats);
 
 uint16_t
 get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats);
+
+int
+add_rules(const char *rule_path, struct flow_classifier *cls_app);
