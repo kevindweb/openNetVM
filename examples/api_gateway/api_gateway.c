@@ -76,10 +76,13 @@ static int
 parse_app_args(int argc, char *argv[], const char *progname, struct state_info *stats) {
         int c;
 
-        while ((c = getopt(argc, argv, "p:")) != -1) {
+        while ((c = getopt(argc, argv, "p:k")) != -1) {
                 switch (c) {
                         case 'p':
                                 stats->print_delay = strtoul(optarg, NULL, 10);
+                                break;
+                        case 'k':
+                                stats->print_keys = 1;
                                 break;
                         case '?':
                                 usage(progname);
@@ -216,10 +219,7 @@ main(int argc, char *argv[]) {
         if (parse_app_args(argc, argv, progname, stats) < 0) {
                 onvm_nflib_stop(nf_local_ctx);
                 rte_exit(EXIT_FAILURE, "Invalid command-line arguments\n");
-        }
-        struct flow_classifier *cls_app;
-        
-        add_rules(parm_config.rule_ipv4_name, cls_app);
+        }        
 
         onvm_nflib_run(nf_local_ctx);
 

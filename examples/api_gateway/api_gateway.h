@@ -41,7 +41,6 @@
 #include "onvm_flow_table.h"
 
 #define NUM_CONTAINERS 4
-#define COMMENT_LEAD_CHAR	('#')
 
 struct onvm_ft *em_tbl;
 
@@ -51,25 +50,7 @@ struct state_info {
         uint64_t dest_eth_addr[NUM_CONTAINERS];
         uint64_t packets_dropped;
         uint32_t print_delay;
-};
-
-#define FLOW_CLASSIFY_MAX_PRIORITY 8
-static struct{
-	const char *rule_ipv4_name;
-} parm_config;
-enum {
-	CB_FLD_SRC_ADDR,
-	CB_FLD_DST_ADDR,
-	CB_FLD_SRC_PORT_DLM,
-	CB_FLD_SRC_PORT,
-	CB_FLD_DST_PORT,
-	CB_FLD_DST_PORT_DLM,
-	CB_FLD_PROTO,
-	CB_FLD_PRIORITY,
-	CB_FLD_NUM,
-};
-struct flow_classifier {
-	struct rte_flow_classifier *cls;
+        uint8_t print_keys;
 };
 
 /* Function pointers for LPM or EM functionality. */
@@ -79,6 +60,3 @@ setup_hash(struct state_info *stats);
 
 uint16_t
 get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats);
-
-int
-add_rules(const char *rule_path, struct flow_classifier *cls_app);
