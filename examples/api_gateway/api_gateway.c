@@ -76,11 +76,13 @@ static int
 parse_app_args(int argc, char *argv[], const char *progname, struct state_info *stats) {
         int c;
 
-        while ((c = getopt(argc, argv, "p:k")) != -1) {
+        while ((c = getopt(argc, argv, "p:n:k")) != -1) {
                 switch (c) {
                         case 'p':
                                 stats->print_delay = strtoul(optarg, NULL, 10);
                                 break;
+                        case 'n':
+                                stats->max_containers = strtoul(optarg, NULL, 10);
                         case 'k':
                                 stats->print_keys = 1;
                                 break;
@@ -117,7 +119,7 @@ print_stats(__attribute__((unused)) struct onvm_nf_local_ctx *nf_local_ctx) {
         /* Clear screen and move to top left */
         printf("\nStatistics ====================================");
         int i;
-        for (i = 0; i < NUM_CONTAINERS; i++) {
+        for (i = 0; i < stats->max_containers; i++) {
                 printf(
                     "\nStatistics for NF Container %d ------------------------------"
                     "\nPackets forwarded to: %20" PRIu64,
@@ -174,8 +176,32 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
                 rte_exit(EXIT_FAILURE, "Unable to setup Hash\n");
         }
         printf("Hash table successfully created. \n");
+        init_cont_nf(stats);
 }
 
+void
+init_cont_nf(struct state_info *stats) {
+         if (stats->max_containers <= 0) {
+                stats->max_containers = 4;
+        }
+        uint8_t max_nfs = stats->max_containers;
+        /* set up array for NF tx data */
+        mz_cont_nf = rte_memzone_reserve("container nf array", sizeof(*cont_nfs) * max_nfs, rte_socket_id(), 0);
+        if (mz_cont_nf==NULL)
+                rte_exit(EXIT_FAILURE, "Cannot reserve memory zone for nf information\n");
+        memset(mz_cont_nf->addr, 0, sizeof(*cont_nfs) * max_nfs);
+        cont_nfs = mz_cont_nf->addr;
+
+        printf("Number of containers to be created: %d\n", stats->max_containers);
+        for (int i=0; i<stats->max_containers; i++) {
+                struct container_nf * nf;
+                nf = &cont_nfs[i];
+                nf->instance_id = i + MAX_NFS;
+                nf->service_id = i + MAX_NFS;
+                nf_cont_init_rings(nf);
+        }
+        rte_memzone_free(mz_cont_nf);
+}
 int
 main(int argc, char *argv[]) {
         int arg_offset;

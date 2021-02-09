@@ -48,3 +48,44 @@ setup_hash(struct state_info *stats) {
 	add_rules(em_tbl, "ipv4_rules_file.txt", stats->print_keys, ONVM_TABLE_EM);
     return 0;
 }
+const char *
+get_cont_rx_queue_name(unsigned id) {
+        /* buffer for return value. Size calculated by %u being replaced
+         * by maximum 3 digits (plus an extra byte for safety) */
+        static char buffer[sizeof(CONT_NF_RXQ_NAME) + 4];
+        sprintf(buffer, CONT_NF_RXQ_NAME, id);
+        return buffer;
+}
+
+const char *
+get_cont_tx_queue_name(unsigned id) {
+        /* buffer for return value. Size calculated by %u being replaced
+         * by maximum 3 digits (plus an extra byte for safety) */
+        static char buffer[sizeof(CONT_NF_TXQ_NAME) + 4];
+        sprintf(buffer, CONT_NF_TXQ_NAME, id);
+        return buffer;
+}
+
+void
+nf_cont_init_rings(struct container_nf *nf) {
+        unsigned instance_id;
+        unsigned socket_id;
+        const char *rq_name;
+        const char *tq_name;
+        const unsigned ringsize = NF_QUEUE_RINGSIZE;
+
+        instance_id = nf->instance_id;
+        socket_id = rte_socket_id();
+        rq_name = get_cont_rx_queue_name(instance_id);
+        tq_name = get_cont_tx_queue_name(instance_id);
+        nf->rx_q =
+                rte_ring_create(rq_name, ringsize, socket_id, RING_F_SC_DEQ); /* multi prod, single cons */
+        nf->tx_q =
+                rte_ring_create(tq_name, ringsize, socket_id, RING_F_SC_DEQ); /* multi prod, single cons */
+
+        if (nf->rx_q == NULL)
+                rte_exit(EXIT_FAILURE, "Cannot create rx ring queue for NF %u\n", instance_id);
+
+        if (nf->tx_q == NULL)
+                rte_exit(EXIT_FAILURE, "Cannot create tx ring queue for NF %u\n", instance_id);
+}

@@ -41,11 +41,17 @@
 #include "onvm_flow_table.h"
 
 #define NUM_CONTAINERS 4
+#define CONT_NF_RXQ_NAME "Cont_Client_%u_RX"
+#define CONT_NF_TXQ_NAME "Cont_Client_%u_TX"
 
 /* This defines the maximum possible number entries in out flow table. */
-#define HASH_ENTRIES 100
+#define HASH_ENTRIES 100 /// TODO: Possibly move this over to state struct.
 
 struct onvm_ft *em_tbl;
+
+struct container_nf *cont_nfs;
+
+const struct rte_memzone *mz_cont_nf;
 
 /*Struct that holds all NF state information */
 struct state_info {
@@ -54,8 +60,15 @@ struct state_info {
         uint64_t packets_dropped;
         uint32_t print_delay;
         uint8_t print_keys;
+        uint8_t max_containers;
 };
 
+struct container_nf {
+        struct rte_ring *rx_q;
+        struct rte_ring *tx_q;
+        uint16_t instance_id;
+        uint16_t service_id;
+};
 /* Function pointers for LPM or EM functionality. */
 
 int
@@ -63,3 +76,9 @@ setup_hash(struct state_info *stats);
 
 uint16_t
 get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats);
+
+void
+nf_cont_init_rings(struct container_nf *nf);
+
+void
+init_cont_nf(struct state_info *stats);
