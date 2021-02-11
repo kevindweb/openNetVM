@@ -35,53 +35,29 @@
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * api_gateway.h - This application performs L3 forwarding.
+ * scaler.h - This application performs L3 forwarding.
  ********************************************************************/
 
-#include "onvm_flow_table.h"
-
-#define NUM_CONTAINERS 4
-#define CONT_NF_RXQ_NAME "Cont_Client_%u_RX"
-#define CONT_NF_TXQ_NAME "Cont_Client_%u_TX"
-
-/* This defines the maximum possible number entries in out flow table. */
-#define HASH_ENTRIES 100  /// TODO: Possibly move this over to state struct.
-
-struct onvm_ft *em_tbl;
-
-struct container_nf *cont_nfs;
-
-const struct rte_memzone *mz_cont_nf;
-
-/*Struct that holds all NF state information */
-struct state_info {
-        uint64_t statistics[NUM_CONTAINERS];
-        uint64_t dest_eth_addr[NUM_CONTAINERS];
-        uint64_t packets_dropped;
-        uint32_t print_delay;
-        uint8_t print_keys;
-        uint8_t max_containers;
-};
-
-struct container_nf {
-        struct rte_ring *rx_q;
-        struct rte_ring *tx_q;
-        uint16_t instance_id;
-        uint16_t service_id;
-};
-/* Function pointers for LPM or EM functionality. */
+int
+num_running_containers(void);
 
 int
-setup_hash(struct state_info *stats);
+init_container(int);
 
-uint16_t
-get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats);
+int
+scale_docker(int);
+
+int
+kill_container_id(char *);
 
 void
-nf_cont_init_rings(struct container_nf *nf);
-
-void
-init_cont_nf(struct state_info *stats);
+kill_docker(void);
 
 void
 init_rings(void);
+
+void
+scaler(void);
+
+void
+test_done(void);

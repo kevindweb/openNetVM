@@ -62,6 +62,10 @@
 
 #define NF_TAG "api_gateway"
 
+static const char *_GATE_2_SCALE = "GATEWAY_2_SCALER";
+static const char *_SCALE_2_GATE = "SCALER_2_GATEWAY";
+struct rte_ring *send_ring, *recv_ring;
+
 /* Print a usage message. */
 static void
 usage(const char *progname) {
@@ -177,24 +181,30 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         }
         printf("Hash table successfully created. \n");
         init_cont_nf(stats);
+        init_rings();
+
+        char *msg = "haloo";
+        if (rte_ring_enqueue(send_ring, msg) < 0) {
+                printf("Failed to send message - message discarded\n");
+        }
 }
 
 void
 init_cont_nf(struct state_info *stats) {
-         if (stats->max_containers <= 0) {
+        if (stats->max_containers <= 0) {
                 stats->max_containers = 4;
         }
         uint8_t max_nfs = stats->max_containers;
         /* set up array for NF tx data */
         mz_cont_nf = rte_memzone_reserve("container nf array", sizeof(*cont_nfs) * max_nfs, rte_socket_id(), 0);
-        if (mz_cont_nf==NULL)
+        if (mz_cont_nf == NULL)
                 rte_exit(EXIT_FAILURE, "Cannot reserve memory zone for nf information\n");
         memset(mz_cont_nf->addr, 0, sizeof(*cont_nfs) * max_nfs);
         cont_nfs = mz_cont_nf->addr;
 
         printf("Number of containers to be created: %d\n", stats->max_containers);
-        for (int i=0; i<stats->max_containers; i++) {
-                struct container_nf * nf;
+        for (int i = 0; i < stats->max_containers; i++) {
+                struct container_nf *nf;
                 nf = &cont_nfs[i];
                 nf->instance_id = i + MAX_NFS;
                 nf->service_id = i + MAX_NFS;
@@ -202,6 +212,20 @@ init_cont_nf(struct state_info *stats) {
         }
         rte_memzone_free(mz_cont_nf);
 }
+
+void
+init_rings() {
+        const unsigned flags = 0;
+        const unsigned ring_size = 64;
+
+        send_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
+        recv_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
+        if (send_ring == NULL)
+                rte_exit(EXIT_FAILURE, "Problem getting sending ring\n");
+        if (recv_ring == NULL)
+                rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
+}
+
 int
 main(int argc, char *argv[]) {
         int arg_offset;
@@ -245,7 +269,7 @@ main(int argc, char *argv[]) {
         if (parse_app_args(argc, argv, progname, stats) < 0) {
                 onvm_nflib_stop(nf_local_ctx);
                 rte_exit(EXIT_FAILURE, "Invalid command-line arguments\n");
-        }        
+        }
 
         onvm_nflib_run(nf_local_ctx);
 

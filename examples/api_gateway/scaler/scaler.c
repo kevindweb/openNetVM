@@ -1,10 +1,71 @@
-#include <pthread.h>
+/*********************************************************************
+ *                     openNetVM
+ *              https://sdnfv.github.io
+ *
+ *   BSD LICENSE
+ *
+ *   Copyright(c)
+ *            2015-2021 George Washington University
+ *            2015-2021 University of California Riverside
+ *   All rights reserved.
+ *
+ *   Redistribution and use in source and binary forms, with or without
+ *   modification, are permitted provided that the following conditions
+ *   are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in
+ *       the documentation and/or other materials provided with the
+ *       distribution.
+ *     * The name of the author may not be used to endorse or promote
+ *       products derived from this software without specific prior
+ *       written permission.
+ *
+ *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ *   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ *   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ *   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * scale.c - A container auto-scaling API for gateway to communicate with.
+ ********************************************************************/
+
+#include <errno.h>
+#include <getopt.h>
+#include <inttypes.h>
+#include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/queue.h>
 #include <unistd.h>
 
+#include <rte_branch_prediction.h>
+#include <rte_common.h>
+#include <rte_debug.h>
+#include <rte_eal.h>
+#include <rte_launch.h>
+#include <rte_lcore.h>
+#include <rte_log.h>
+#include <rte_memory.h>
+#include <rte_per_lcore.h>
+#include <rte_ring.h>
+
+#include "scaler.h"
+
 // START globals section
+static const char* _GATE_2_SCALE = "GATEWAY_2_SCALER";
+static const char* _SCALE_2_GATE = "SCALER_2_GATEWAY";
+struct rte_ring *send_ring, *recv_ring;
 
 // tell scaler thread to stop executing
 int DONE = 0;
@@ -138,28 +199,51 @@ kill_docker() {
         system(docker_call);
 }
 
-/* scaler runs to maintain warm containers and garbage collect old ones */
-void*
-scaler(void* in) {
-        while (!DONE) {
-                // maintain the correct number of "warm" containers
-                // garbage collect
-                // printf("Inside thread\n");
-                sleep(5);
-                printf("Scaler container kill: %s\n", container_id);
-                kill_container_id(container_id);
-        }
-        return NULL;
+void
+init_rings() {
+        const unsigned flags = 0;
+        const unsigned ring_size = 64;
+
+        send_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
+        recv_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
+        if (send_ring == NULL)
+                rte_exit(EXIT_FAILURE, "Problem getting sending ring\n");
+        if (recv_ring == NULL)
+                rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
 }
 
-int
-test_done(pthread_t tid) {
-        DONE = 1;
-        pthread_join(tid, NULL);
+/* scaler runs to maintain warm containers and garbage collect old ones */
+void
+scaler() {
+        // while (!DONE) {
+        //         // maintain the correct number of "warm" containers
+        //         // garbage collect
+        //         // printf("Inside thread\n");
+        //         sleep(5);
+        //         printf("Scaler container kill: %s\n", container_id);
+        //         kill_container_id(container_id);
+        // }
+        while (1) {
+                void* msg;
+                if (rte_ring_dequeue(recv_ring, &msg) < 0) {
+                        usleep(5);
+                        continue;
+                }
+
+                // gateway asked us to do something
+                printf("Received '%s'\n", (char*)msg);
+                break;
+        }
+
+        return;
+}
+
+void
+test_done() {
+        // DONE = 1;
+        // pthread_join(tid, NULL);
         printf("Containers running: %d\n", num_running_containers());
         kill_docker();
-
-        return -1;
 }
 
 int
@@ -170,18 +254,22 @@ main(int argc, char* argv[]) {
          * periodically checks the last timestamp (when was the last packet a container received (is it old))
          */
 
-        pthread_t tid;
+        // pthread_t tid;
         // scaler acts as initializer and garbage collector
-        pthread_create(&tid, NULL, scaler, NULL);
+        // pthread_create(&tid, NULL, scaler, NULL);
 
         // run API tests
-        if (scale_docker(1) != 0) {
-                printf("Couldn't initialize containers\n");
-                return test_done(tid);
-        }
-        sleep(1);
-        printf("Containers running: %d\n", num_running_containers());
+        init_rings();
+        scaler();
+        // if (scale_docker(1) != 0) {
+        //         printf("Couldn't initialize containers\n");
+        //         test_done();
+        //         return -1;
+        // }
+        // sleep(1);
+        // printf("Containers running: %d\n", num_running_containers());
 
         // tell scaler we're finished
-        return test_done(tid);
+        test_done();
+        return 0;
 }

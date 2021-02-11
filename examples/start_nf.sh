@@ -84,4 +84,4 @@ fi
 
 # don't mess with variable expansion
 # shellcheck disable=SC2086
-exec sudo "$BINARY" $DPDK_ARGS -- $ONVM_ARGS -- "$@"
+echo exec sudo "$BINARY" $DPDK_ARGS -- $ONVM_ARGS -- "$@"
