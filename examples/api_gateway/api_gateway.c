@@ -41,6 +41,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -59,12 +60,9 @@
 #include "onvm_flow_table.h"
 #include "onvm_nflib.h"
 #include "onvm_pkt_helper.h"
+#include "scaler.h"
 
 #define NF_TAG "api_gateway"
-
-static const char *_GATE_2_SCALE = "GATEWAY_2_SCALER";
-static const char *_SCALE_2_GATE = "SCALER_2_GATEWAY";
-struct rte_ring *send_ring, *recv_ring;
 
 /* Print a usage message. */
 static void
@@ -179,12 +177,18 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
                 rte_free(stats);
                 rte_exit(EXIT_FAILURE, "Unable to setup Hash\n");
         }
+
         printf("Hash table successfully created. \n");
         init_cont_nf(stats);
+
+        pthread_t tid;
+        // scaler acts as container initializer and garbage collector
+        pthread_create(&tid, NULL, scaler, NULL);
+
         init_rings();
 
         char *msg = "haloo";
-        if (rte_ring_enqueue(send_ring, msg) < 0) {
+        if (rte_ring_enqueue(to_scale_ring, msg) < 0) {
                 printf("Failed to send message - message discarded\n");
         }
 }
@@ -218,11 +222,11 @@ init_rings() {
         const unsigned flags = 0;
         const unsigned ring_size = 64;
 
-        send_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
-        recv_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
-        if (send_ring == NULL)
+        to_scale_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
+        to_gate_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
+        if (to_scale_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting sending ring\n");
-        if (recv_ring == NULL)
+        if (to_gate_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
 }
 

@@ -56,8 +56,8 @@ kill_docker(void);
 void
 init_rings(void);
 
-void
-scaler(void);
+void *
+scaler(void *);
 
 void
 test_done(void);

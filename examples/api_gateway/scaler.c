@@ -60,12 +60,10 @@
 #include <rte_per_lcore.h>
 #include <rte_ring.h>
 
+#include "api_gateway.h"
 #include "scaler.h"
 
 // START globals section
-static const char* _GATE_2_SCALE = "GATEWAY_2_SCALER";
-static const char* _SCALE_2_GATE = "SCALER_2_GATEWAY";
-struct rte_ring *send_ring, *recv_ring;
 
 // tell scaler thread to stop executing
 int DONE = 0;
@@ -199,22 +197,22 @@ kill_docker() {
         system(docker_call);
 }
 
-void
-init_rings() {
-        const unsigned flags = 0;
-        const unsigned ring_size = 64;
+// void
+// init_rings() {
+//         const unsigned flags = 0;
+//         const unsigned ring_size = 64;
 
-        send_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
-        recv_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
-        if (send_ring == NULL)
-                rte_exit(EXIT_FAILURE, "Problem getting sending ring\n");
-        if (recv_ring == NULL)
-                rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
-}
+//         send_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
+//         recv_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
+//         if (send_ring == NULL)
+//                 rte_exit(EXIT_FAILURE, "Problem getting sending ring\n");
+//         if (recv_ring == NULL)
+//                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
+// }
 
 /* scaler runs to maintain warm containers and garbage collect old ones */
-void
-scaler() {
+void*
+scaler(void* in) {
         // while (!DONE) {
         //         // maintain the correct number of "warm" containers
         //         // garbage collect
@@ -225,7 +223,7 @@ scaler() {
         // }
         while (1) {
                 void* msg;
-                if (rte_ring_dequeue(recv_ring, &msg) < 0) {
+                if (rte_ring_dequeue(to_scale_ring, &msg) < 0) {
                         usleep(5);
                         continue;
                 }
@@ -235,7 +233,7 @@ scaler() {
                 break;
         }
 
-        return;
+        return NULL;
 }
 
 void
@@ -246,30 +244,30 @@ test_done() {
         kill_docker();
 }
 
-int
-main(int argc, char* argv[]) {
-        /*
-         * create API that checks how many containers are alive
-         * create scaling thread that maintains the specific number of live containers
-         * periodically checks the last timestamp (when was the last packet a container received (is it old))
-         */
+// int
+// main(int argc, char* argv[]) {
+//         /*
+//          * create API that checks how many containers are alive
+//          * create scaling thread that maintains the specific number of live containers
+//          * periodically checks the last timestamp (when was the last packet a container received (is it old))
+//          */
 
-        // pthread_t tid;
-        // scaler acts as initializer and garbage collector
-        // pthread_create(&tid, NULL, scaler, NULL);
+//         // pthread_t tid;
+//         // scaler acts as initializer and garbage collector
+//         // pthread_create(&tid, NULL, scaler, NULL);
 
-        // run API tests
-        init_rings();
-        scaler();
-        // if (scale_docker(1) != 0) {
-        //         printf("Couldn't initialize containers\n");
-        //         test_done();
-        //         return -1;
-        // }
-        // sleep(1);
-        // printf("Containers running: %d\n", num_running_containers());
+//         // run API tests
+//         init_rings();
+//         scaler(NULL);
+//         // if (scale_docker(1) != 0) {
+//         //         printf("Couldn't initialize containers\n");
+//         //         test_done();
+//         //         return -1;
+//         // }
+//         // sleep(1);
+//         // printf("Containers running: %d\n", num_running_containers());
 
-        // tell scaler we're finished
-        test_done();
-        return 0;
-}
+//         // tell scaler we're finished
+//         test_done();
+//         return 0;
+// }

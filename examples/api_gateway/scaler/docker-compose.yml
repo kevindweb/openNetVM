@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  # Define the network function to be scaled
+  skeleton:
+    image: "ubuntu:20.04"
+    tty: true
+    stdin_open: true
+    volumes:
+      - /local/onvm/openNetVM/examples/api_gateway/container:/container
+    # hostname: 'skeleton'
+    hostname: "{{.Node.ID}}-{{.Service.Name}}"
+    working_dir: /container
+    command: /bin/bash
+    # command: /bin/bash -c "./test.sh"

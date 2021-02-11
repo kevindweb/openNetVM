@@ -53,6 +53,10 @@ struct container_nf *cont_nfs;
 
 const struct rte_memzone *mz_cont_nf;
 
+static const char *_GATE_2_SCALE = "GATEWAY_2_SCALER";
+static const char *_SCALE_2_GATE = "SCALER_2_GATEWAY";
+struct rte_ring *to_scale_ring, *to_gate_ring;
+
 /*Struct that holds all NF state information */
 struct state_info {
         uint64_t statistics[NUM_CONTAINERS];
@@ -82,6 +86,3 @@ nf_cont_init_rings(struct container_nf *nf);
 
 void
 init_cont_nf(struct state_info *stats);
-
-void
-init_rings(void);
