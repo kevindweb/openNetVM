@@ -87,6 +87,14 @@ const char* COMMAND =
     --detach \
     ubuntu:20.04 \
     /bin/bash -c './container/test.sh'";
+/*
+const char* COMMAND =
+        "sudo docker service create --name skeleton \
+        --mount type=bind,source=/local/onvm/openNetVM/examples/api_gateway/scaler,destination=/container \
+        --mount type=bind,source=/tmp/rx/{{.Task.Slot}},destination=/rx_pipe \
+        --mount type=bind,source=/tmp/tx/{{.Task.Slot}},destination=/tx_pipe \
+        ubuntu:20.04 '/bin/bash'";
+*/
 
 // only a global variable for testing between threads
 // we will eventually put new container IDs into a thread-safe linked list
