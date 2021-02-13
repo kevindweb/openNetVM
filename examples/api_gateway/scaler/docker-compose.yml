@@ -5,23 +5,7 @@ services:
     image: "ubuntu:20.04"
     volumes:
       - /local/onvm/openNetVM/examples/api_gateway/scaler:/container
-      - "/tmp/rx/{{.Task.Slot}}":/rx_pipe
-      # - /tmp/tx/{{.Task.Slot}}:/tx_pipe
-    hostname: 'container'
-    # environment:
-    #   X_NODE_ID: '{{.Node.ID}}'
-    #   X_NODE_HOSTNAME: '{{.Node.Hostname}}'
-    #   X_NODE_PLATFROM: '{{.Node.Platform}}'
-    #   X_NODE_PLATFROM_ARCHITECTURE: '{{.Node.Platform.Architecture}}'
-    #   X_NODE_PLATFROM_OS: '{{.Node.Platform.OS}}'
-    #   X_SERVICE_ID: '{{.Service.ID}}'
-    #   X_SERVICE_NAMES: '{{.Service.Name}}'
-    #   X_SERVICE_LABELS: '{{.Service.Labels}}'
-    #   X_SERVICE_LABEL_STACK_NAMESPACE: '{{index .Service.Labels "com.docker.stack.namespace"}}'
-    #   X_SERVICE_LABEL_STACK_IMAGE: '{{index .Service.Labels "com.docker.stack.image"}}'
-    #   X_SERVICE_LABEL_CUSTOM: '{{index .Service.Labels "service.label"}}'
-    #   X_TASK_ID: '{{.Task.ID}}'
-    #   X_TASK_NAME: '{{.Task.Name}}'
-    #   X_TASK_SLOT: '{{.Task.Slot}}'
+      - /tmp/rx/{{.Task.Slot}}:/rx_pipe
+      - /tmp/tx/{{.Task.Slot}}:/tx_pipe
     working_dir: /container
-    command: /bin/bash
+    command: ./test.sh

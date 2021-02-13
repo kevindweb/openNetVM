@@ -66,35 +66,20 @@
 // START globals section
 
 // tell scaler thread to stop executing
-int DONE = 0;
+// int DONE = 0;
 
 // next container ID (auto-incremented)
 int NEXT_CONTAINER = 0;
 
 // number of "warm" containers (haven't been assigned a flow)
 int NUM_WARM_CONTAINERS = 0;
+int TOTAL_CONTAINERS = 0;
 
 // service name for the docker containers
 const char* SERVICE = "skeleton";
 
-// docker command to start container (sprintf used to insert ID variable)
-const char* COMMAND =
-    "sudo docker run \
-    --name='%s%d' \
-    --hostname='%s%d' \
-    --volume=/tmp/container/%d:/tmp/pipe \
-    --volume=/local/onvm/openNetVM/container:/container \
-    --detach \
-    ubuntu:20.04 \
-    /bin/bash -c './container/test.sh'";
-/*
-const char* COMMAND =
-        "sudo docker service create --name skeleton \
-        --mount type=bind,source=/local/onvm/openNetVM/examples/api_gateway/scaler,destination=/container \
-        --mount type=bind,source=/tmp/rx/{{.Task.Slot}},destination=/rx_pipe \
-        --mount type=bind,source=/tmp/tx/{{.Task.Slot}},destination=/tx_pipe \
-        ubuntu:20.04 '/bin/bash'";
-*/
+// docker command to start container
+const char* COMMAND = "sudo docker stack deploy -c docker-compose.yml skeleton";
 
 // only a global variable for testing between threads
 // we will eventually put new container IDs into a thread-safe linked list
@@ -131,7 +116,13 @@ num_running_containers() {
         return num;
 }
 
-/* Initialize warm docker containers, with unique named pipe volumes */
+/* Create rx and tx pipes in /tmp/rx and /tmp/tx */
+int
+create_pipes(int ref) {
+        // TODO: insert pipe code here
+}
+
+/* Initialize docker stack to bring the services up */
 int
 init_container(int retry) {
         /*
@@ -139,29 +130,10 @@ init_container(int retry) {
          * Initialize docker container
          * Place container ID in the shared struct of "warm" containers
          */
-        FILE* fp;
-        int id_hash_length = 13;
-        // char container_id[id_hash_length];
-        int stat;
-        char docker_call[300];
 
-        sprintf(docker_call, COMMAND, SERVICE, NEXT_CONTAINER, SERVICE, NEXT_CONTAINER, NEXT_CONTAINER);
-        fp = popen(docker_call, "r");
-        if (!fp) {
-                printf("Docker failed to execute\n");
+        int ret = system(COMMAND);
+        if (WEXITSTATUS(ret) != 0)
                 return -1;
-        }
-
-        // output should be one line (the container ID which is a 64 character hash with \0 terminator)
-        fgets(container_id, id_hash_length, fp);
-
-        // close popen
-        stat = pclose(fp);
-
-        if (WEXITSTATUS(stat) != 0) {
-                // docker command failed
-                return -1;
-        }
 
         // increment for next scale call
         NEXT_CONTAINER++;
@@ -173,16 +145,15 @@ init_container(int retry) {
 // initialize "scale" number of warm containers
 int
 scale_docker(int scale) {
-        for (int i = 0; i < scale; i++) {
-                if (init_container(0) == -1) {
-                        // failed to instantiate container
-                        printf("Couldn't init container %d\n", (i + 1));
-                        return -1;
-                }
-        }
+        char docker_call[100];
 
         // increment number of warm containers
-        NUM_WARM_CONTAINERS += scale;
+        TOTAL_CONTAINERS += scale;
+
+        sprintf(docker_call, "/bin/sudo docker service scale %s_%s=%d", SERVICE, SERVICE, TOTAL_CONTAINERS);
+        int ret = system(docker_call);
+        if (WEXITSTATUS(ret) != 0)
+                return -1;
 
         return 0;
 }
@@ -201,34 +172,13 @@ kill_container_id(char* hash_id) {
 void
 kill_docker() {
         char docker_call[100];
-        sprintf(docker_call, "/bin/sudo docker rm -f $(/bin/sudo docker ps -aq --filter='name=%s')", SERVICE);
+        sprintf(docker_call, "/bin/sudo docker stack rm %s", SERVICE);
         system(docker_call);
 }
-
-// void
-// init_rings() {
-//         const unsigned flags = 0;
-//         const unsigned ring_size = 64;
-
-//         send_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
-//         recv_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
-//         if (send_ring == NULL)
-//                 rte_exit(EXIT_FAILURE, "Problem getting sending ring\n");
-//         if (recv_ring == NULL)
-//                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
-// }
 
 /* scaler runs to maintain warm containers and garbage collect old ones */
 void*
 scaler(void* in) {
-        // while (!DONE) {
-        //         // maintain the correct number of "warm" containers
-        //         // garbage collect
-        //         // printf("Inside thread\n");
-        //         sleep(5);
-        //         printf("Scaler container kill: %s\n", container_id);
-        //         kill_container_id(container_id);
-        // }
         while (1) {
                 void* msg;
                 if (rte_ring_dequeue(to_scale_ring, &msg) < 0) {
@@ -244,13 +194,13 @@ scaler(void* in) {
         return NULL;
 }
 
-void
-test_done() {
-        // DONE = 1;
-        // pthread_join(tid, NULL);
-        printf("Containers running: %d\n", num_running_containers());
-        kill_docker();
-}
+// void
+// test_done() {
+//         // DONE = 1;
+//         // pthread_join(tid, NULL);
+//         printf("Containers running: %d\n", num_running_containers());
+//         kill_docker();
+// }
 
 // int
 // main(int argc, char* argv[]) {
