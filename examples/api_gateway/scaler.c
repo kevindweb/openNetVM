@@ -101,6 +101,7 @@ num_running_containers() {
         while (fgets(container_id, id_hash_length, fp) != NULL) {
                 // remove new line character
                 container_id[id_hash_length - 2] = '\0';
+                printf("Container hash: %s\n", container_id);
                 num++;
         }
 
@@ -114,6 +115,7 @@ num_running_containers() {
 int
 create_pipes(int ref) {
         // TODO: insert pipe code here
+        return 0;
 }
 
 /* Initialize docker stack to bring the services up */
@@ -131,8 +133,8 @@ init_stack() {
                 return -1;
 
         // docker command to start container
-        const char* COMMAND = "docker stack deploy -c docker-compose.yml skeleton";
-        int ret = system(COMMAND);
+        const char* command = "docker stack deploy -c ./scaler/docker-compose.yml skeleton";
+        int ret = system(command);
 
         if (WEXITSTATUS(ret) != 0)
                 return -1;
@@ -147,6 +149,7 @@ scale_docker(int scale) {
 
         for (int i = TOTAL_CONTAINERS; i < scale + TOTAL_CONTAINERS; i++) {
                 // create the pipes for a specific container ID
+                printf("scale %d\n", i);
                 if (create_pipes(i) == -1) {
                         // failed to make pipe
                         printf("Could not create pipes to scale containers\n");
@@ -157,7 +160,8 @@ scale_docker(int scale) {
         // increment number of containers that were scaled
         TOTAL_CONTAINERS += scale;
 
-        sprintf(docker_call, "docker service scale %s_%s=%d", SERVICE, SERVICE, TOTAL_CONTAINERS);
+        sprintf(docker_call, "docker service scale %s_%s=%d", SERVICE, SERVICE, TOTAL_CONTAINERS - 1);
+
         int ret = system(docker_call);
         if (WEXITSTATUS(ret) != 0)
                 return -1;
@@ -200,8 +204,11 @@ scaler(void* in) {
 
                 // gateway asked us to do something
                 printf("Received '%s'\n", (char*)msg);
+                scale_docker(2);
                 break;
         }
 
+        printf("Scaler thread exiting\n");
+        kill_docker();
         return NULL;
 }
