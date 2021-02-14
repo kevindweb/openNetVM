@@ -65,21 +65,15 @@
 
 // START globals section
 
-// tell scaler thread to stop executing
-// int DONE = 0;
-
 // next container ID (auto-incremented)
 int NEXT_CONTAINER = 0;
 
 // number of "warm" containers (haven't been assigned a flow)
 int NUM_WARM_CONTAINERS = 0;
-int TOTAL_CONTAINERS = 0;
+int TOTAL_CONTAINERS = 1;
 
 // service name for the docker containers
 const char* SERVICE = "skeleton";
-
-// docker command to start container
-const char* COMMAND = "sudo docker stack deploy -c docker-compose.yml skeleton";
 
 // only a global variable for testing between threads
 // we will eventually put new container IDs into a thread-safe linked list
@@ -97,7 +91,7 @@ num_running_containers() {
         int num = 0;
         char docker_call[100];
 
-        sprintf(docker_call, "/bin/sudo docker ps -aq --filter='name=%s'", SERVICE);
+        sprintf(docker_call, "docker ps -aq --filter='name=%s'", SERVICE);
         fp = popen(docker_call, "r");
         if (!fp) {
                 printf("Docker failed to execute\n");
@@ -124,21 +118,25 @@ create_pipes(int ref) {
 
 /* Initialize docker stack to bring the services up */
 int
-init_container(int retry) {
+init_stack() {
         /*
-         * Set up named pipe
+         * Set up first named pipe
          * Initialize docker container
          * Place container ID in the shared struct of "warm" containers
          */
 
+        // set up first named pipe
+        if (create_pipes(++TOTAL_CONTAINERS) == -1)
+                // failed pipe creation
+                return -1;
+
+        // docker command to start container
+        const char* COMMAND = "docker stack deploy -c docker-compose.yml skeleton";
         int ret = system(COMMAND);
+
         if (WEXITSTATUS(ret) != 0)
                 return -1;
 
-        // increment for next scale call
-        NEXT_CONTAINER++;
-
-        // add this container ID to the warm pool Linked List
         return 0;
 }
 
@@ -147,10 +145,19 @@ int
 scale_docker(int scale) {
         char docker_call[100];
 
-        // increment number of warm containers
+        for (int i = TOTAL_CONTAINERS; i < scale + TOTAL_CONTAINERS; i++) {
+                // create the pipes for a specific container ID
+                if (create_pipes(i) == -1) {
+                        // failed to make pipe
+                        printf("Could not create pipes to scale containers\n");
+                        return -1;
+                }
+        }
+
+        // increment number of containers that were scaled
         TOTAL_CONTAINERS += scale;
 
-        sprintf(docker_call, "/bin/sudo docker service scale %s_%s=%d", SERVICE, SERVICE, TOTAL_CONTAINERS);
+        sprintf(docker_call, "docker service scale %s_%s=%d", SERVICE, SERVICE, TOTAL_CONTAINERS);
         int ret = system(docker_call);
         if (WEXITSTATUS(ret) != 0)
                 return -1;
@@ -163,8 +170,8 @@ int
 kill_container_id(char* hash_id) {
         char docker_call[36];
         // docker_call string is 36 characters with a 12 character container hash id + \0
-        // 36 characters -> /bin/sudo docker rm -f <container hash id>\0
-        sprintf(docker_call, "/bin/sudo docker rm -f %s", hash_id);
+        // 36 characters -> docker rm -f <container hash id>\0
+        sprintf(docker_call, "docker rm -f %s", hash_id);
         return system(docker_call);
 }
 
@@ -172,13 +179,18 @@ kill_container_id(char* hash_id) {
 void
 kill_docker() {
         char docker_call[100];
-        sprintf(docker_call, "/bin/sudo docker stack rm %s", SERVICE);
+        sprintf(docker_call, "docker stack rm %s", SERVICE);
         system(docker_call);
 }
 
 /* scaler runs to maintain warm containers and garbage collect old ones */
 void*
 scaler(void* in) {
+        if (init_stack() == -1) {
+                printf("Failed to start up docker stack\n");
+                return NULL;
+        }
+
         while (1) {
                 void* msg;
                 if (rte_ring_dequeue(to_scale_ring, &msg) < 0) {
@@ -193,39 +205,3 @@ scaler(void* in) {
 
         return NULL;
 }
-
-// void
-// test_done() {
-//         // DONE = 1;
-//         // pthread_join(tid, NULL);
-//         printf("Containers running: %d\n", num_running_containers());
-//         kill_docker();
-// }
-
-// int
-// main(int argc, char* argv[]) {
-//         /*
-//          * create API that checks how many containers are alive
-//          * create scaling thread that maintains the specific number of live containers
-//          * periodically checks the last timestamp (when was the last packet a container received (is it old))
-//          */
-
-//         // pthread_t tid;
-//         // scaler acts as initializer and garbage collector
-//         // pthread_create(&tid, NULL, scaler, NULL);
-
-//         // run API tests
-//         init_rings();
-//         scaler(NULL);
-//         // if (scale_docker(1) != 0) {
-//         //         printf("Couldn't initialize containers\n");
-//         //         test_done();
-//         //         return -1;
-//         // }
-//         // sleep(1);
-//         // printf("Containers running: %d\n", num_running_containers());
-
-//         // tell scaler we're finished
-//         test_done();
-//         return 0;
-// }
