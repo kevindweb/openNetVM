@@ -65,19 +65,19 @@
 
 // START globals section
 
-// next container ID (auto-incremented)
-int NEXT_CONTAINER = 0;
-
-// number of "warm" containers (haven't been assigned a flow)
-int NUM_WARM_CONTAINERS = 0;
-int TOTAL_CONTAINERS = 1;
+/*
+ * represents a queue of "warm" containers
+ * scaler only needs to keep track of pipe ID (auto-incrementing)
+ *   for each container
+ * - (QUEUE_FRONT - QUEUE_BACK) is the number of "warm" containers
+ * - QUEUE_FRONT++ increases the size of the stack (during scaling)
+ * - QUEUE_BACK++ decreases q size
+ */
+int QUEUE_FRONT = 0;
+int QUEUE_BACK = 0;
 
 // service name for the docker containers
 const char* SERVICE = "skeleton";
-
-// only a global variable for testing between threads
-// we will eventually put new container IDs into a thread-safe linked list
-char container_id[13];
 
 // END globals section
 
@@ -128,7 +128,7 @@ init_stack() {
          */
 
         // set up first named pipe
-        if (create_pipes(++TOTAL_CONTAINERS) == -1)
+        if (create_pipes(++QUEUE_FRONT) == -1)
                 // failed pipe creation
                 return -1;
 
@@ -142,12 +142,11 @@ init_stack() {
         return 0;
 }
 
-// initialize "scale" number of warm containers
+// initialize "scale" more containers (they will start in the "warm queue")
 int
 scale_docker(int scale) {
         char docker_call[100];
-
-        for (int i = TOTAL_CONTAINERS; i < scale + TOTAL_CONTAINERS; i++) {
+        for (int i = QUEUE_FRONT + 1; i <= scale + QUEUE_FRONT; i++) {
                 // create the pipes for a specific container ID
                 printf("scale %d\n", i);
                 if (create_pipes(i) == -1) {
@@ -158,9 +157,9 @@ scale_docker(int scale) {
         }
 
         // increment number of containers that were scaled
-        TOTAL_CONTAINERS += scale;
+        QUEUE_FRONT += scale;
 
-        sprintf(docker_call, "docker service scale %s_%s=%d", SERVICE, SERVICE, TOTAL_CONTAINERS - 1);
+        sprintf(docker_call, "docker service scale %s_%s=%d", SERVICE, SERVICE, QUEUE_FRONT);
 
         int ret = system(docker_call);
         if (WEXITSTATUS(ret) != 0)
@@ -198,13 +197,30 @@ scaler(void* in) {
         while (1) {
                 void* msg;
                 if (rte_ring_dequeue(to_scale_ring, &msg) < 0) {
+                        // no new flows yet, just do auto-scaling work
                         usleep(5);
                         continue;
                 }
 
                 // gateway asked us to do something
-                printf("Received '%s'\n", (char*)msg);
-                scale_docker(2);
+                int num_requested = (int)msg;
+                printf("Received %d containers\n", num_requested);
+                int num_warm = QUEUE_FRONT - QUEUE_BACK;
+                int num_to_scale = num_requested - num_warm;
+
+                if (num_to_scale > 0) {
+                        // need to scale more to answer the gateway's request
+                        scale_docker(num_to_scale);
+                }
+
+                // now that they're scaled, enqueue to the scale_to_gate
+                if (rte_ring_enqueue(to_gate_ring, msg) < 0) {
+                        printf("Failed to send containers to gateway\n");
+                } else {
+                        // success, dequeue from warm container list
+                        QUEUE_BACK += num_requested;
+                }
+
                 break;
         }
 

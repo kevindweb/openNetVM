@@ -161,18 +161,17 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
         if (dst == -1) {
                 scaling_buf->buffer[scaling_buf->count++] = pkt;
                 if (scaling_buf->count == PACKET_READ_SIZE) {
-                        if (rte_ring_enqueue_bulk(scale_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE, NULL) == 0) {
-                                for (int i=0; i<PACKET_READ_SIZE; i++) {
-                                         rte_pktmbuf_free(scaling_buf->buffer[i]);
+                        if (rte_ring_enqueue_bulk(scale_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE,
+                                                  NULL) == 0) {
+                                for (int i = 0; i < PACKET_READ_SIZE; i++) {
+                                        rte_pktmbuf_free(scaling_buf->buffer[i]);
                                 }
                                 return 0;
-                        }
-                        else {
+                        } else {
                                 scaling_buf->count = 0;
                         }
                 }
         }
-
 
         meta->destination = dst;
         stats->statistics[dst]++;
@@ -200,11 +199,12 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         init_rings();
 
         pthread_t buf_thd;
-        // scaler acts as container initializer and garbage collector
+        // buffer acts as the gateway's dispatcher of new flows -> container pipes
         pthread_create(&buf_thd, NULL, buffer, NULL);
 
-        char *msg = "haloo";
-        if (rte_ring_enqueue(to_scale_ring, msg) < 0) {
+        // for testing - how many containers do we want to ask scaler for
+        int request_containers = 5;
+        if (rte_ring_enqueue(to_scale_ring, request_containers) < 0) {
                 printf("Failed to send message - message discarded\n");
         }
 }
