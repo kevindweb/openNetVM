@@ -5,9 +5,8 @@
  *   BSD LICENSE
  *
  *   Copyright(c)
- *            2015-2019 George Washington University
- *            2015-2019 University of California Riverside
- *            2010-2019 Intel Corporation. All rights reserved.
+ *            2015-2020 George Washington University
+ *            2015-2020 University of California Riverside
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -36,59 +35,54 @@
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * api_gateway.h - This application performs L3 forwarding.
  ********************************************************************/
 
-/******************************************************************************
+#include "onvm_flow_table.h"
 
-                               onvm_includes.h
+#define NUM_CONTAINERS 4
+#define CONT_NF_RXQ_NAME "Cont_Client_%u_RX"
+#define CONT_NF_TXQ_NAME "Cont_Client_%u_TX"
 
+/* This defines the maximum possible number entries in out flow table. */
+#define HASH_ENTRIES 100  /// TODO: Possibly move this over to state struct.
 
-         Header file containing all shared headers and data structures
+struct onvm_ft *em_tbl;
 
+struct container_nf *cont_nfs;
 
-******************************************************************************/
+const struct rte_memzone *mz_cont_nf;
 
-#ifndef _ONVM_INCLUDES_H_
-#define _ONVM_INCLUDES_H_
+static const char *_GATE_2_SCALE = "GATEWAY_2_SCALER";
+static const char *_SCALE_2_GATE = "SCALER_2_GATEWAY";
+struct rte_ring *to_scale_ring, *to_gate_ring;
 
-/******************************Standard C library*****************************/
+/*Struct that holds all NF state information */
+struct state_info {
+        uint64_t statistics[NUM_CONTAINERS];
+        uint64_t dest_eth_addr[NUM_CONTAINERS];
+        uint64_t packets_dropped;
+        uint32_t print_delay;
+        uint8_t print_keys;
+        uint8_t max_containers;
+};
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdarg.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/queue.h>
-#include <unistd.h>
+struct container_nf {
+        struct rte_ring *rx_q;
+        struct rte_ring *tx_q;
+        uint16_t instance_id;
+        uint16_t service_id;
+};
+/* Function pointers for LPM or EM functionality. */
 
-/********************************DPDK library*********************************/
+int
+setup_hash(struct state_info *stats);
 
-#include <rte_atomic.h>
-#include <rte_branch_prediction.h>
-#include <rte_common.h>
-#include <rte_debug.h>
-#include <rte_eal.h>
-#include <rte_ethdev.h>
-#include <rte_ether.h>
-#include <rte_interrupts.h>
-#include <rte_launch.h>
-#include <rte_lcore.h>
-#include <rte_log.h>
-#include <rte_mbuf.h>
-#include <rte_memory.h>
-#include <rte_mempool.h>
-#include <rte_memzone.h>
-#include <rte_pci.h>
-#include <rte_per_lcore.h>
-#include <rte_ring.h>
-#include <rte_string_fns.h>
-#include <rte_tailq.h>
-#include <rte_jhash.h>
+uint16_t
+get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats);
 
-/******************************Internal headers*******************************/
+void
+nf_cont_init_rings(struct container_nf *nf);
 
-#include "onvm_common.h"
-
-#endif  // _ONVM_INCLUDES_H_
+void
+init_cont_nf(struct state_info *stats);

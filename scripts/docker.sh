@@ -65,7 +65,7 @@ for DEV in ${RAW_DEVICES} ; do
 done
 
 if [[ "${DIR}" != "" ]] ; then
-    DIR="--volume=${DIR}:/$(basename "${DIR}")"
+    DIR="--mount type=volume,source=${DIR},destination=/$(basename "${DIR}")"
 fi
 
 # warn users about go script ignoring manager checks
@@ -80,6 +80,7 @@ if [[ "${CMD}" == "" ]] ; then
         --hostname="${NAME}" \
         --network bridge \
         --volume=/var/run:/var/run \
+        --volume=/dev/shm:/dev/shm \
         --volume="${HUGE}":"${HUGE}" \
         --volume="${ONVM}":/openNetVM \
         ${DIR} \
@@ -88,12 +89,12 @@ if [[ "${CMD}" == "" ]] ; then
         /bin/bash
 else
     sudo docker run \
-        --detach=true \
         --privileged \
         --name="${NAME}" \
         --hostname="${NAME}" \
         --network bridge \
         --volume=/var/run:/var/run \
+        --volume=/dev/shm:/dev/shm \
         --volume="${HUGE}":"${HUGE}" \
         --volume="${ONVM}":/openNetVM \
         ${DIR} \
@@ -101,4 +102,22 @@ else
         sdnfv/opennetvm \
         /bin/bash -c "${CMD}"
 fi
+#     sudo docker20 service create \
+#         --detach \
+#         --name="${NAME}" \
+#         --hostname="${NAME}" \
+#         --network bridge \
+#         --cap-add "CAP_MAC_ADMIN" \
+#         --cap-add "CAP_NET_ADMIN" \
+#         --cap-add "CAP_SYS_ADMIN" \
+#         --mount type=bind,source=/var/run,destination=/var/run \
+#         --mount type=bind,source="${HUGE}",destination="${HUGE}" \
+#         --mount type=bind,source="${ONVM}",destination=/openNetVM \
+#         --mount type=bind,source=/dev/shm,destination=/dev/shm \
+#         ${DIR} \
+#         "${DEVICES[@]}" \
+#         sdnfv/opennetvm \
+#         /bin/bash -c "./sleep.sh"
+# fi
+        # /bin/bash -c "${CMD}"
 

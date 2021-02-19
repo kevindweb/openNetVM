@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  # Define the network function to be scaled
+  skeleton:
+    image: "ubuntu:20.04"
+    volumes:
+      - /local/onvm/openNetVM/examples/api_gateway/scaler:/container
+      - /tmp/rx/{{.Task.Slot}}:/rx_pipe
+      - /tmp/tx/{{.Task.Slot}}:/tx_pipe
+    working_dir: /container
+    command: ./test.sh
