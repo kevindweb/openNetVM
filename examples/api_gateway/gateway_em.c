@@ -21,7 +21,7 @@
 #include "onvm_table_parser.h"
 
 uint16_t
-get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats) {
+get_ipv4_dst(struct rte_mbuf *pkt) {
     struct data *data = NULL;
     struct onvm_ft_ipv4_5tuple key;
     uint8_t dst;
@@ -66,26 +66,32 @@ get_cont_tx_queue_name(unsigned id) {
         return buffer;
 }
 
-void
-nf_cont_init_rings(struct container_nf *nf) {
-        unsigned instance_id;
-        unsigned socket_id;
-        const char *rq_name;
-        const char *tq_name;
-        const unsigned ringsize = NF_QUEUE_RINGSIZE;
-
-        instance_id = nf->instance_id;
-        socket_id = rte_socket_id();
-        rq_name = get_cont_rx_queue_name(instance_id);
-        tq_name = get_cont_tx_queue_name(instance_id);
-        nf->rx_q =
-                rte_ring_create(rq_name, ringsize, socket_id, RING_F_SC_DEQ); /* multi prod, single cons */
-        nf->tx_q =
-                rte_ring_create(tq_name, ringsize, socket_id, RING_F_SC_DEQ); /* multi prod, single cons */
-
-        if (nf->rx_q == NULL)
-                rte_exit(EXIT_FAILURE, "Cannot create rx ring queue for NF %u\n", instance_id);
-
-        if (nf->tx_q == NULL)
-                rte_exit(EXIT_FAILURE, "Cannot create tx ring queue for NF %u\n", instance_id);
+void*
+buffer(void* in) {
+        struct packet_buf *pkts_deq_burst;
+        struct packet_buf *pkts_enq_burst;
+        int num_deq,i,dst;
+        struct rte_mbuf *pkt;
+        while (1) {
+                num_deq = rte_ring_dequeue_burst(scale_buffer_ring, (void **)pkts_deq_burst->buffer, PACKET_READ_SIZE, NULL);
+                if (num_deq == 0 && scaling_buf->count != 0) {
+                        // TODO: Is a lock necessary here?
+                        rte_ring_enqueue_burst(scale_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE, NULL);
+                        scaling_buf->count = 0;
+                } else {
+                        for (i=0; i<num_deq; i++) {
+                                pkt = pkts_deq_burst->buffer[i];
+                                dst = get_ipv4_dst(pkt);
+                                if (dst >= 0) {
+                                        //send_to_pipe()
+                                }
+                                else {
+                                        pkts_enq_burst->buffer[pkts_enq_burst->count++] = pkt;
+                                }
+                        }
+                        rte_ring_enqueue_burst(scale_buffer_ring, (void **)pkts_enq_burs->buffer, PACKET_READ_SIZE, NULL);
+                }
+        }
+        printf("Buffer thread exiting\n");
+        return NULL;
 }

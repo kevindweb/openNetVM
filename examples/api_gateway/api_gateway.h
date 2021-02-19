@@ -39,6 +39,7 @@
  ********************************************************************/
 
 #include "onvm_flow_table.h"
+#include "onvm_pkt_common.h"
 
 #define NUM_CONTAINERS 4
 #define CONT_NF_RXQ_NAME "Cont_Client_%u_RX"
@@ -55,7 +56,9 @@ const struct rte_memzone *mz_cont_nf;
 
 static const char *_GATE_2_SCALE = "GATEWAY_2_SCALER";
 static const char *_SCALE_2_GATE = "SCALER_2_GATEWAY";
-struct rte_ring *to_scale_ring, *to_gate_ring;
+static const char *_SCALE_BUFFER = "SCALING_BUFFER";
+struct rte_ring *to_scale_ring, *to_gate_ring, *scale_buffer_ring;
+struct packet_buf *scaling_buf;
 
 /*Struct that holds all NF state information */
 struct state_info {
@@ -79,10 +82,10 @@ int
 setup_hash(struct state_info *stats);
 
 uint16_t
-get_ipv4_dst(struct rte_mbuf *pkt, struct state_info *stats);
-
-void
-nf_cont_init_rings(struct container_nf *nf);
+get_ipv4_dst(struct rte_mbuf *pkt);
 
 void
 init_cont_nf(struct state_info *stats);
+
+void*
+buffer(void* in);

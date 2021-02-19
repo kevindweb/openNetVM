@@ -155,13 +155,25 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
         }
         uint16_t dst;
 
-        dst = get_ipv4_dst(pkt, stats);
+        dst = get_ipv4_dst(pkt);
 
+        // This is a new flow should call the scale API here. Once container is ready add flow to table.
         if (dst == -1) {
-                meta->action = ONVM_NF_ACTION_DROP;
-                stats->packets_dropped++;
-                return 0;
+                scaling_buf->buffer[scaling_buf->count++] = pkt;
+                if (scaling_buf->count == PACKET_READ_SIZE) {
+                        if (rte_ring_enqueue_bulk(scale_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE, NULL) == 0) {
+                                for (int i=0; i<PACKET_READ_SIZE; i++) {
+                                         rte_pktmbuf_free(scaling_buf->buffer[i]);
+                                }
+                                return 0;
+                        }
+                        else {
+                                scaling_buf->count = 0;
+                        }
+                }
         }
+
+
         meta->destination = dst;
         stats->statistics[dst]++;
         meta->action = ONVM_NF_ACTION_TONF;
@@ -186,6 +198,10 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         pthread_create(&tid, NULL, scaler, NULL);
 
         init_rings();
+
+        pthread_t buf_thd;
+        // scaler acts as container initializer and garbage collector
+        pthread_create(&buf_thd, NULL, buffer, NULL);
 
         char *msg = "haloo";
         if (rte_ring_enqueue(to_scale_ring, msg) < 0) {
@@ -212,9 +228,7 @@ init_cont_nf(struct state_info *stats) {
                 nf = &cont_nfs[i];
                 nf->instance_id = i + MAX_NFS;
                 nf->service_id = i + MAX_NFS;
-                nf_cont_init_rings(nf);
         }
-        rte_memzone_free(mz_cont_nf);
 }
 
 void
@@ -224,10 +238,13 @@ init_rings() {
 
         to_scale_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
         to_gate_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
+        scale_buffer_ring = rte_ring_create(_SCALE_BUFFER, NF_QUEUE_RINGSIZE, rte_socket_id(), RING_F_SP_ENQ);
         if (to_scale_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting sending ring\n");
         if (to_gate_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
+        if (scale_buffer_ring == NULL)
+                rte_exit(EXIT_FAILURE, "Problem getting buffer ring for scaling.\n");
 }
 
 int
@@ -281,6 +298,7 @@ main(int argc, char *argv[]) {
         /* Stats will be freed by manager. Do not put table data structures in the stats struct as doing so will result
            in seg fault. Update stats to be deallocated by NF? */
         onvm_ft_free(em_tbl);
+        rte_memzone_free(mz_cont_nf);
         printf("If we reach here, program is ending\n");
         return 0;
 }
