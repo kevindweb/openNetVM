@@ -167,7 +167,9 @@ int*
 ready_pipes() {
         int i, counter = 0;
         int fd;  
+        struct init_pipe* tmp; 
         struct init_pipe* iterator = head;
+        struct init_pipe* prev = iterator; 
         int pipes[NUM_CONTAINERS]; 
 
         // open in nonblock write only will fail if pipe isn't open on read end 
@@ -176,9 +178,28 @@ ready_pipes() {
                 if ((fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) {
                         pipes[i] = iterator->ref;
                         close(fd); 
-                        counter++; 
+                        counter++;
+
+                        // remove from init pipes list
+                        if (iterator = head) {
+                                if (iterator->next == NULL) {
+                                        head = NULL;
+                                        prev = head;
+                                        free(prev);
+                                } else {
+                                        prev = iterator;
+                                        head = iterator->next;
+                                        free(prev);
+                                }
+                        } else {
+                                prev->next = iterator->next;
+                                tmp = iterator;
+                                free(tmp);
+                        }
+                } else {
+                        prev = iterator; 
+                        iterator = iterator->next; 
                 }
-                iterator = iterator->next;
                 i++;
         }
 
