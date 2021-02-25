@@ -44,6 +44,9 @@
 #define NUM_CONTAINERS 4
 #define CONT_NF_RXQ_NAME "Cont_Client_%u_RX"
 #define CONT_NF_TXQ_NAME "Cont_Client_%u_TX"
+#define CONT_RX_PIPE_NAME "/tmp/rx/%d"
+#define CONT_TX_PIPE_NAME "/tmp/tx/%d"
+
 
 /* This defines the maximum possible number entries in out flow table. */
 #define HASH_ENTRIES 100  /// TODO: Possibly move this over to state struct.

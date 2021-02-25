@@ -79,6 +79,9 @@ int QUEUE_BACK = 0;
 // service name for the docker containers
 const char* SERVICE = "skeleton";
 
+// list head for initialized pipes not ready for communication
+struct init_pipes* head = NULL;
+
 // END globals section
 
 /* API Calls below */
@@ -114,8 +117,83 @@ num_running_containers() {
 /* Create rx and tx pipes in /tmp/rx and /tmp/tx */
 int
 create_pipes(int ref) {
-        // TODO: insert pipe code here
+        // rx pipe name 
+        static char rx_pipe[sizeof(CONT_RX_PIPE_NAME) + 4];
+        sprintf(rx_pipe, CONT_RX_PIPE_NAME, ref);
+        
+        // remove any old pipes with same name 
+        remove(rx_pipe); 
+
+        // create rx pipe 
+        if (mkfifo(rx_pipe, 0666) == -1 ) {
+                perror("mkfifo");
+                return -1; 
+        }
+
+        // tx pipe name 
+        static char tx_pipe[sizeof(CONT_TX_PIPE_NAME) + 4];
+        sprintf(tx_pipe, CONT_TX_PIPE_NAME, ref);
+
+        // remove any old pipes with same name 
+        remove(tx_pipe); 
+
+        // create tx pipe
+        if (mkfifo(tx_pipe, 0666) == -1) {
+                perror("mkfifo"); 
+                return -1; 
+        }
+
+        // add initialized pipe to list 
+        struct init_pipe* new_pipe = (struct init_pipe*)malloc(sizeof(struct init_pipe)); 
+        new_pipe->ref = ref; 
+        strcpy(new_pipe->tx_pipe, tx_pipe); 
+        new_pipe->next = NULL; 
+
+        if (head == NULL) {
+                head = new_pipe; 
+        } else {
+                struct init_pipe* iterator = head; 
+                while(iterator->next != NULL) {
+                        iterator = iterator->next;
+                }
+                iterator->next = new_pipe; 
+        }
+
         return 0;
+}
+
+/* Return array of ref IDs of ready containers */ 
+int*
+ready_pipes() {
+        int i, counter = 0;
+        int fd;  
+        struct init_pipe* iterator = head;
+        int pipes[NUM_CONTAINERS]; 
+
+        // open in nonblock write only will fail if pipe isn't open on read end 
+        while(iterator->next != NULL) {
+                // pipe ready 
+                if ((fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) {
+                        pipes[i] = iterator->ref;
+                        close(fd); 
+                        counter++; 
+                }
+                iterator = iterator->next;
+                i++;
+        }
+
+        // pipe ready 
+        if ((fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) {
+                pipes[i] = iterator->ref;
+                close(fd); 
+        }
+
+        int *warm_pipes = (int*) malloc(sizeof(int) * counter); 
+        for (i = 0; i < counter; i++) {
+                warm_pipes[i] = pipes[i]; 
+        }
+
+        return warm_pipes; 
 }
 
 /* Initialize docker stack to bring the services up */
