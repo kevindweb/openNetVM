@@ -38,6 +38,15 @@
  * scaler.h - This application performs L3 forwarding.
  ********************************************************************/
 
+// warm container ring
+#define WARM_CONTAINER_RING "warm_cont_ring"
+
+// 1024 maximum open file descriptors (stated by linux) / (2 pipes/container)
+#define MAX_CONTAINERS 512
+
+// service name for the docker containers
+#define SERVICE "skeleton"
+
 int
 num_running_containers(void);
 
@@ -48,23 +57,26 @@ int
 scale_docker(int);
 
 int
-kill_container_id(char *);
+kill_container_id(char*);
 
 void
 kill_docker(void);
 
-void
-init_rings(void);
-
-void *
-scaler(void *);
+void*
+scaler(void*);
 
 void
 test_done(void);
 
-/* list of initialized pipes */ 
+/* list of initialized pipes */
 struct init_pipe {
-	int ref; 
-	const char* tx_pipe; 
-	struct init_pipe* next; 
+        int ref;
+        char* tx_pipe;
+        struct init_pipe* next;
+};
+
+/* tuple of pipe file descriptors */
+struct pipe_fds {
+        int tx_pipe;
+        int rx_pipe;
 };

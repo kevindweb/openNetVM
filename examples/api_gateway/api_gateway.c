@@ -204,7 +204,7 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
 
         // for testing - how many containers do we want to ask scaler for
         int request_containers = 5;
-        if (rte_ring_enqueue(to_scale_ring, request_containers) < 0) {
+        if (rte_ring_enqueue(to_scale_ring, &request_containers) < 0) {
                 printf("Failed to send message - message discarded\n");
         }
 }
