@@ -35,7 +35,7 @@
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * scale.c - A container auto-scaling API for gateway to communicate with.
+ * scaler.c - A container auto-scaling API for gateway to communicate with.
  ********************************************************************/
 
 #include <errno.h>
@@ -47,40 +47,31 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/queue.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-#include <rte_branch_prediction.h>
 #include <rte_common.h>
-#include <rte_debug.h>
-#include <rte_eal.h>
-#include <rte_launch.h>
-#include <rte_lcore.h>
-#include <rte_log.h>
-#include <rte_memory.h>
-#include <rte_per_lcore.h>
-#include <rte_ring.h>
+#include <rte_mbuf.h>
 
 #include "api_gateway.h"
 #include "scaler.h"
 
 // START globals section
 
-/*
- * represents a queue of "warm" containers
- * scaler only needs to keep track of pipe ID (auto-incrementing)
- *   for each container
- * - (QUEUE_FRONT - QUEUE_BACK) is the number of "warm" containers
- * - QUEUE_FRONT++ increases the size of the stack (during scaling)
- * - QUEUE_BACK++ decreases q size
- */
-int QUEUE_FRONT = 0;
-int QUEUE_BACK = 0;
+// how many containers have we called docker service scale to overall
+int total_scaled = 0;
 
-// service name for the docker containers
-const char* SERVICE = "skeleton";
+// initialized by docker service scale, but pipes not ready
+int num_initialized = 0;
+
+// number of containers requested by gw, but not fulfilled by scaler
+int num_requested = 0;
 
 // list head for initialized pipes not ready for communication
-struct init_pipes* head = NULL;
+struct init_pipe* head = NULL;
+
+// stack to hold warm container pipe fds
+struct rte_ring* warm_containers;
 
 // END globals section
 
@@ -117,30 +108,30 @@ num_running_containers() {
 /* Create rx and tx pipes in /tmp/rx and /tmp/tx */
 int
 create_pipes(int ref) {
-        // rx pipe name 
+        // rx pipe name
         static char rx_pipe[sizeof(CONT_RX_PIPE_NAME) + 4];
         sprintf(rx_pipe, CONT_RX_PIPE_NAME, ref);
-        
-        // remove any old pipes with same name 
-        remove(rx_pipe); 
 
-        // create rx pipe 
-        if (mkfifo(rx_pipe, 0666) == -1 ) {
+        // remove any old pipes with same name
+        remove(rx_pipe);
+
+        // create rx pipe
+        if (mkfifo(rx_pipe, 0666) == -1) {
                 perror("mkfifo");
-                return -1; 
+                return -1;
         }
 
-        // tx pipe name 
+        // tx pipe name
         static char tx_pipe[sizeof(CONT_TX_PIPE_NAME) + 4];
         sprintf(tx_pipe, CONT_TX_PIPE_NAME, ref);
 
-        // remove any old pipes with same name 
-        remove(tx_pipe); 
+        // remove any old pipes with same name
+        remove(tx_pipe);
 
         // create tx pipe
         if (mkfifo(tx_pipe, 0666) == -1) {
-                perror("mkfifo"); 
-                return -1; 
+                perror("mkfifo");
+                return -1;
         }
 
         // add initialized pipe to list 
@@ -151,31 +142,31 @@ create_pipes(int ref) {
         new_pipe->next = NULL; 
 
         if (head == NULL) {
-                head = new_pipe; 
+                head = new_pipe;
         } else {
-                struct init_pipe* iterator = head; 
-                while(iterator->next != NULL) {
+                struct init_pipe* iterator = head;
+                while (iterator->next != NULL) {
                         iterator = iterator->next;
                 }
-                iterator->next = new_pipe; 
+                iterator->next = new_pipe;
         }
 
         return 0;
 }
 
-/* Return array of ref IDs of ready containers */ 
+/* Return array of ref IDs of ready containers */
 int*
 ready_pipes() {
         int i, counter = 0;
-        int fd;  
-        struct init_pipe* tmp; 
+        int fd;
+        struct init_pipe* tmp;
         struct init_pipe* iterator = head;
-        struct init_pipe* prev = iterator; 
-        int pipes[NUM_CONTAINERS]; 
+        struct init_pipe* prev = iterator;
+        int pipes[NUM_CONTAINERS];
 
-        // open in nonblock write only will fail if pipe isn't open on read end 
-        while(iterator->next != NULL) {
-                // pipe ready 
+        // open in nonblock write only will fail if pipe isn't open on read end
+        while (iterator->next != NULL) {
+                // pipe ready
                 if ((fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) {
                         /*
                          * Add (tx_fd, rx_fd) to the stack
@@ -187,7 +178,7 @@ ready_pipes() {
                         counter++;
 
                         // remove from init pipes list
-                        if (iterator = head) {
+                        if (iterator == head) {
                                 if (iterator->next == NULL) {
                                         head = NULL;
                                         prev = head;
@@ -203,24 +194,24 @@ ready_pipes() {
                                 free(tmp);
                         }
                 } else {
-                        prev = iterator; 
-                        iterator = iterator->next; 
+                        prev = iterator;
+                        iterator = iterator->next;
                 }
                 i++;
         }
 
-        // pipe ready 
+        // pipe ready
         if ((fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) {
                 pipes[i] = iterator->ref;
-                close(fd); 
+                close(fd);
         }
 
-        int *warm_pipes = (int*) malloc(sizeof(int) * counter); 
+        int* warm_pipes = (int*)malloc(sizeof(int) * counter);
         for (i = 0; i < counter; i++) {
-                warm_pipes[i] = pipes[i]; 
+                warm_pipes[i] = pipes[i];
         }
 
-        return warm_pipes; 
+        return warm_pipes;
 }
 
 /* Initialize docker stack to bring the services up */
@@ -233,7 +224,7 @@ init_stack() {
          */
 
         // set up first named pipe
-        if (create_pipes(++QUEUE_FRONT) == -1)
+        if (create_pipes(++total_scaled) == -1)
                 // failed pipe creation
                 return -1;
 
@@ -244,6 +235,14 @@ init_stack() {
         if (WEXITSTATUS(ret) != 0)
                 return -1;
 
+        // initialize ring
+        const unsigned flags = 0;
+        warm_containers = rte_ring_create(WARM_CONTAINER_RING, MAX_CONTAINERS, rte_socket_id(), flags);
+        if (warm_containers == NULL) {
+                perror("Problem getting ring for warm containers\n");
+                return -1;
+        }
+
         return 0;
 }
 
@@ -251,7 +250,7 @@ init_stack() {
 int
 scale_docker(int scale) {
         char docker_call[100];
-        for (int i = QUEUE_FRONT + 1; i <= scale + QUEUE_FRONT; i++) {
+        for (int i = total_scaled + 1; i <= scale + total_scaled; i++) {
                 // create the pipes for a specific container ID
                 printf("scale %d\n", i);
                 if (create_pipes(i) == -1) {
@@ -262,9 +261,9 @@ scale_docker(int scale) {
         }
 
         // increment number of containers that were scaled
-        QUEUE_FRONT += scale;
+        total_scaled += scale;
 
-        sprintf(docker_call, "docker service scale %s_%s=%d", SERVICE, SERVICE, QUEUE_FRONT);
+        sprintf(docker_call, "docker service scale %s_%s=%d", SERVICE, SERVICE, total_scaled);
 
         int ret = system(docker_call);
         if (WEXITSTATUS(ret) != 0)
@@ -291,6 +290,48 @@ kill_docker() {
         system(docker_call);
 }
 
+/* Send warm container fds to gateway */
+void
+send_containers() {
+        // pipe file descriptors in the stack
+        void** pipe_fds;
+        int num_to_pop;
+        int ret;
+
+        // number of completely ready pipes
+        int num_warm = rte_ring_count(warm_containers);
+
+        if (num_warm == 0 || num_requested == 0) {
+                // nothing to do, no containers to send
+                return;
+        }
+
+        if (num_warm <= num_requested) {
+                // need to pop the entire available stack
+                num_requested -= num_warm;
+                num_to_pop = num_warm;
+        } else {
+                // only need to pop the first <num_requested>
+                num_to_pop = num_requested;
+                num_requested = 0;
+        }
+
+        ret = rte_ring_dequeue_bulk(warm_containers, pipe_fds, num_to_pop, NULL);
+        if (ret == 0) {
+                perror("Could not pop the stack pipes to send\n");
+                return;
+        }
+
+        // now that they're scaled, enqueue to the scale_to_gate
+        if (rte_ring_enqueue(to_gate_ring, pipe_fds) < 0) {
+                perror("Failed to send containers to gateway\n");
+                return;
+        }
+
+        // our number of initialized containers drops after we pop them
+        num_initialized -= num_to_pop;
+}
+
 /* scaler runs to maintain warm containers and garbage collect old ones */
 void*
 scaler(void* in) {
@@ -308,10 +349,9 @@ scaler(void* in) {
                 }
 
                 // gateway asked us to do something
-                int num_requested = (int)msg;
-                printf("Received %d containers\n", num_requested);
-                int num_warm = QUEUE_FRONT - QUEUE_BACK;
-                int num_to_scale = num_requested - num_warm;
+                num_requested += *((int*)msg);
+                int num_to_scale = num_requested - num_initialized;
+                printf("Received %d containers and need to scale up %d\n", num_requested, num_to_scale);
 
                 if (num_to_scale > 0) {
                         // need to scale more to answer the gateway's request
@@ -319,12 +359,7 @@ scaler(void* in) {
                 }
 
                 // now that they're scaled, enqueue to the scale_to_gate
-                if (rte_ring_enqueue(to_gate_ring, msg) < 0) {
-                        printf("Failed to send containers to gateway\n");
-                } else {
-                        // success, dequeue from warm container list
-                        QUEUE_BACK += num_requested;
-                }
+                send_containers();
 
                 break;
         }

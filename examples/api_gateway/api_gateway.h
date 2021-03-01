@@ -47,7 +47,6 @@
 #define CONT_RX_PIPE_NAME "/tmp/rx/%d"
 #define CONT_TX_PIPE_NAME "/tmp/tx/%d"
 
-
 /* This defines the maximum possible number entries in out flow table. */
 #define HASH_ENTRIES 100  /// TODO: Possibly move this over to state struct.
 
@@ -90,5 +89,8 @@ get_ipv4_dst(struct rte_mbuf *pkt);
 void
 init_cont_nf(struct state_info *stats);
 
-void*
-buffer(void* in);
+void *
+buffer(void *in);
+
+void
+init_rings(void);
