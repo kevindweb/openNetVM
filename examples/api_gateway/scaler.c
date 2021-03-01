@@ -147,6 +147,7 @@ create_pipes(int ref) {
         struct init_pipe* new_pipe = (struct init_pipe*)malloc(sizeof(struct init_pipe)); 
         new_pipe->ref = ref; 
         strcpy(new_pipe->tx_pipe, tx_pipe); 
+        strcpy(new_pipe->tx_pipe, rx_pipe); 
         new_pipe->next = NULL; 
 
         if (head == NULL) {
@@ -176,8 +177,13 @@ ready_pipes() {
         while(iterator->next != NULL) {
                 // pipe ready 
                 if ((fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) {
+                        /*
+                         * Add (tx_fd, rx_fd) to the stack
+                         * dont close pipe
+                         * gateway can just call write(fd);
+                         */
                         pipes[i] = iterator->ref;
-                        close(fd); 
+                        close(fd);
                         counter++;
 
                         // remove from init pipes list

@@ -65,6 +65,7 @@ test_done(void);
 /* list of initialized pipes */ 
 struct init_pipe {
 	int ref; 
+	const char* rx_pipe; 
 	const char* tx_pipe; 
 	struct init_pipe* next; 
 };
