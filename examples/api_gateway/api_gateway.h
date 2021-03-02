@@ -46,9 +46,13 @@
 #define CONT_NF_TXQ_NAME "Cont_Client_%u_TX"
 #define CONT_RX_PIPE_NAME "/tmp/rx/%d"
 #define CONT_TX_PIPE_NAME "/tmp/tx/%d"
+#define PKTMBUF_POOL_NAME "MProc_pktmbuf_pool"
 
 /* This defines the maximum possible number entries in out flow table. */
 #define HASH_ENTRIES 100  /// TODO: Possibly move this over to state struct.
+
+/* Handle signals and shutdowns between threads */
+rte_atomic16_t signal_exit_flag;
 
 struct onvm_ft *em_tbl;
 
@@ -56,11 +60,15 @@ struct container_nf *cont_nfs;
 
 const struct rte_memzone *mz_cont_nf;
 
+struct rte_mempool *pktmbuf_pool;
+
 static const char *_GATE_2_SCALE = "GATEWAY_2_SCALER";
 static const char *_SCALE_2_GATE = "SCALER_2_GATEWAY";
 static const char *_SCALE_BUFFER = "SCALING_BUFFER";
 struct rte_ring *to_scale_ring, *to_gate_ring, *scale_buffer_ring;
 struct packet_buf *scaling_buf;
+
+struct onvm_nf_local_ctx *nf_local_ctx;
 
 /*Struct that holds all NF state information */
 struct state_info {
@@ -78,6 +86,33 @@ struct container_nf {
         uint16_t instance_id;
         uint16_t service_id;
 };
+
+/* Packet struct that exists on the container */
+typedef struct pkt {
+        void *buf_addr;
+        uint16_t refcnt;
+        uint16_t nb_segs;
+        uint16_t port;
+        uint64_t ol_flags;
+        uint32_t pkt_len;
+        uint16_t data_len;
+        uint16_t vlan_tci;
+        uint16_t vlan_tci_outer;
+        uint16_t buf_len;
+        uint16_t priv_size;
+        uint16_t timesync;
+        uint16_t dynfield1[9];
+        uint32_t packet_type;
+        uint8_t l2_type : 4;
+        uint8_t l3_type : 4;
+        uint8_t l4_type : 4;
+        uint8_t tun_type : 4;
+        uint8_t inner_esp_next_proto;
+        uint8_t inner_l2_type : 4;
+        uint8_t inner_l3_type : 4;
+        uint8_t inner_l4_type : 4;
+} pkt;
+
 /* Function pointers for LPM or EM functionality. */
 
 int
@@ -92,5 +127,11 @@ init_cont_nf(struct state_info *stats);
 void *
 buffer(void *in);
 
+void *
+polling(void *in);
+
 void
 init_rings(void);
+
+void
+sig_handler(int sig);

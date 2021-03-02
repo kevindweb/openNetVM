@@ -72,7 +72,7 @@ buffer(void *in) {
         struct packet_buf *pkts_enq_burst;
         int num_deq, i, dst;
         struct rte_mbuf *pkt;
-        while (1) {
+        while (!rte_atomic16_read(&signal_exit_flag)) {
                 num_deq =
                     rte_ring_dequeue_burst(scale_buffer_ring, (void **)pkts_deq_burst->buffer, PACKET_READ_SIZE, NULL);
                 if (num_deq == 0 && scaling_buf->count != 0) {
@@ -94,5 +94,70 @@ buffer(void *in) {
                 }
         }
         printf("Buffer thread exiting\n");
+        return NULL;
+}
+
+/* Turn a container packet into a dpdk rte_mbuf pkt */
+void
+pkt_to_mbuf(pkt *packet, struct rte_mbuf *mbuf_buffer, int inx) {
+        struct rte_ether_hdr *pkt_ehdr;
+        struct rte_mbuf *pkt = rte_pktmbuf_alloc(pktmbuf_pool);
+
+        if (pkt == NULL) {
+                printf("Failed to allocate packets\n");
+                break;
+        }
+
+        /* Append and copy ether header */
+        pkt_ehdr = (struct rte_ether_hdr *)rte_pktmbuf_append(pkt, packet_size);
+        rte_memcpy(pkt_ehdr, ehdr, sizeof(struct rte_ether_hdr));
+
+        struct onvm_pkt_meta *pmeta = onvm_get_pkt_meta(pkt);
+        pmeta->destination = destination;
+        pmeta->flags |= ONVM_SET_BIT(0, LOAD_GEN_BIT);
+        if (action_out) {
+                pmeta->action = ONVM_NF_ACTION_OUT;
+        } else {
+                pmeta->action = ONVM_NF_ACTION_TONF;
+        }
+
+        pkts[inx] = pkt;
+}
+
+/* Thread to continuously poll all tx_fds from containers for packets to send out to network */
+void *
+polling(void *in) {
+        int tx_fd;
+        int batch_size;
+        int max_packets = 65536;
+        struct rte_mbuf *pkts[max_packets];
+        pkt *packet = malloc(sizeof(pkt));
+        if (packet == NULL) {
+                perror("Issues initializing packets\n");
+                return NULL;
+        }
+
+        while (!rte_atomic16_read(&signal_exit_flag)) {
+                // reinitialize data
+
+                // batch_size continuously updates
+                batch_size = 0;
+
+                // iterate through all open tx_pipe fds
+                for (;;) {
+                        // TODO: get fd from data structure
+                        tx_fd = 1;
+
+                        // read the container pipe buffer until its empty
+                        while (read(tx_fd, packet, sizeof(pkt)) != -1) {
+                                // convert packet to rte_mbuf and insert into buffer
+                                pkt_to_mbuf(packet, pkts, batch_size++);
+                        }
+                }
+                onvm_nflib_return_pkt_bulk(nf_local_ctx->nf, pkts, batch_size);
+        }
+
+        free(packet);
+        printf("Polling thread exiting\n");
         return NULL;
 }

@@ -190,23 +190,42 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         }
 
         printf("Hash table successfully created. \n");
-        init_cont_nf(stats);
-
-        pthread_t tid;
-        // scaler acts as container initializer and garbage collector
-        pthread_create(&tid, NULL, scaler, NULL);
 
         init_rings();
+
+        pthread_t scale_thd;
+        // scaler acts as container initializer and garbage collector
+        pthread_create(&scale_thd, NULL, scaler, NULL);
 
         pthread_t buf_thd;
         // buffer acts as the gateway's dispatcher of new flows -> container pipes
         pthread_create(&buf_thd, NULL, buffer, NULL);
+
+        pthread_t poll_thd;
+        // polling acts as tx thread that gets all container packets out through network
+        pthread_create(&poll_thd, NULL, polling, NULL);
+
+        // set up polling mbuf buffer
+        pktmbuf_pool = rte_mempool_lookup(PKTMBUF_POOL_NAME);
+        if (pktmbuf_pool == NULL) {
+                onvm_nflib_stop(nf_local_ctx);
+                rte_exit(EXIT_FAILURE, "Cannot find mbuf pool!\n");
+        }
 
         // for testing - how many containers do we want to ask scaler for
         int request_containers = 5;
         if (rte_ring_enqueue(to_scale_ring, &request_containers) < 0) {
                 printf("Failed to send message - message discarded\n");
         }
+}
+
+void
+sig_handler(int sig) {
+        if (sig != SIGINT && sig != SIGTERM)
+                return;
+
+        /* Will stop the processing for all spawned threads in advanced rings mode */
+        rte_atomic16_set(&signal_exit_flag, 1);
 }
 
 void
@@ -250,12 +269,15 @@ init_rings() {
 int
 main(int argc, char *argv[]) {
         int arg_offset;
-        struct onvm_nf_local_ctx *nf_local_ctx;
         struct onvm_nf_function_table *nf_function_table;
         const char *progname = argv[0];
 
         nf_local_ctx = onvm_nflib_init_nf_local_ctx();
-        onvm_nflib_start_signal_handler(nf_local_ctx, NULL);
+
+        // set up signals for the threads to exit
+        rte_atomic16_init(&signal_exit_flag);
+        rte_atomic16_set(&signal_exit_flag, 0);
+        onvm_nflib_start_signal_handler(nf_local_ctx, sig_handler);
 
         nf_function_table = onvm_nflib_init_nf_function_table();
         nf_function_table->pkt_handler = &packet_handler;

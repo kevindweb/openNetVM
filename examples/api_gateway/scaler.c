@@ -326,6 +326,12 @@ send_containers() {
         num_initialized -= num_to_pop;
 }
 
+void
+cleanup() {
+        kill_docker();
+        clean_pipes();
+}
+
 /* scaler runs to maintain warm containers and garbage collect old ones */
 void*
 scaler(void* in) {
@@ -334,7 +340,7 @@ scaler(void* in) {
                 return NULL;
         }
 
-        while (1) {
+        while (!rte_atomic16_read(&signal_exit_flag)) {
                 void* msg;
                 if (rte_ring_dequeue(to_scale_ring, &msg) < 0) {
                         // no new flows yet, just do auto-scaling work
@@ -359,6 +365,6 @@ scaler(void* in) {
         }
 
         printf("Scaler thread exiting\n");
-        kill_docker();
+        cleanup();
         return NULL;
 }

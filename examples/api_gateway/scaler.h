@@ -66,7 +66,7 @@ void*
 scaler(void*);
 
 void
-test_done(void);
+cleanup(void);
 
 /* list of initialized pipes */
 struct init_pipe {
