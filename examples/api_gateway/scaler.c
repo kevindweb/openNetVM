@@ -154,29 +154,28 @@ create_pipes(int ref) {
         return 0;
 }
 
-/* Return array of ref IDs of ready containers */
-int*
+/* Add ready containers to warm containers stack */
+void
 ready_pipes() {
-        int i, counter = 0;
-        int fd;
+        int tx_fd, rx_fd;
         struct init_pipe* tmp;
         struct init_pipe* iterator = head;
         struct init_pipe* prev = iterator;
-        int pipes[NUM_CONTAINERS];
+        struct pipe_fds* warm_pipes;
 
         // open in nonblock write only will fail if pipe isn't open on read end
         while (iterator->next != NULL) {
                 // pipe ready
-                if ((fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) {
-                        /*
-                         * Add (tx_fd, rx_fd) to the stack
-                         * dont close pipe
-                         * gateway can just call write(fd);
-                         */
-                        pipes[i] = iterator->ref;
-                        close(fd);
-                        counter++;
+                if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) & (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
+                        // add (tx_fd, rx_fd) to the stack
+                        warm_pipes->rx_pipe = rx_fd;
+                        warm_pipes->tx_pipe = tx_fd; 
 
+                        if (rte_ring_enqueue(warm_containers, (void*)warm_pipes) < 0) {
+                                perror("Failed to send containers to gateway\n");
+                                return;
+                        }
+                        
                         // remove from init pipes list
                         if (iterator == head) {
                                 if (iterator->next == NULL) {
@@ -193,25 +192,34 @@ ready_pipes() {
                                 tmp = iterator;
                                 free(tmp);
                         }
-                } else {
-                        prev = iterator;
-                        iterator = iterator->next;
-                }
-                i++;
+                } 
+                prev = iterator;
+                iterator = iterator->next;
         }
 
         // pipe ready
-        if ((fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) {
-                pipes[i] = iterator->ref;
-                close(fd);
+        if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) & (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
+                // add (tx_fd, rx_fd) to the stack
+                warm_pipes->rx_pipe = rx_fd;
+                warm_pipes->tx_pipe = tx_fd; 
+
+                if (rte_ring_enqueue(warm_containers, (void*)warm_pipes) < 0) {
+                        perror("Failed to send containers to gateway\n");
+                        return;
+                }
+                        
+                // remove from init pipes list
+                if (iterator == head) {
+                        head = NULL;
+                        prev = head;
+                        free(prev);
+                } else {
+                        prev->next = iterator->next; 
+                        tmp = iterator;
+                        free(tmp);
+                }
         }
 
-        int* warm_pipes = (int*)malloc(sizeof(int) * counter);
-        for (i = 0; i < counter; i++) {
-                warm_pipes[i] = pipes[i];
-        }
-
-        return warm_pipes;
 }
 
 /* Initialize docker stack to bring the services up */
