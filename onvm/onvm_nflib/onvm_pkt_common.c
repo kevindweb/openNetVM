@@ -58,8 +58,8 @@
  *          a pointer to the packet
  *
  */
-static inline void
-onvm_pkt_enqueue_port(struct queue_mgr *tx_mgr, uint16_t port, struct rte_mbuf *buf);
+// static inline void
+// onvm_pkt_enqueue_port(struct queue_mgr *tx_mgr, uint16_t port, struct rte_mbuf *buf);
 
 /*
  * Function to process a single packet.
