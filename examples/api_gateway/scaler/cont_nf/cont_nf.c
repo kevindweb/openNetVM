@@ -1,37 +1,112 @@
 #include "cont_nf.h"
-#include "onvm_nflib.h"
-#include "onvm_pkt_helper.h"
-
-#define NF_TAG "cont_nf"
 
 
-const char *
-get_cont_pipe_name(unsigned id) {
-    /* buffer for return value. Size calculated by %u being replaced
-    * by maximum 3 digits (plus an extra byte for safety) */
-    static char buffer[sizeof(CONT_NF_PIPE_NAME) + 4];
-    sprintf(buffer, CONT_NF_PIPE_NAME, id);
-    return buffer;
+/* global struct of tx and rx fds */ 
+struct pipe_fds* warm_pipes; 
+
+/* 
+ * Create rx and tx pipes
+ * Return 0 on success, -1 on failure 
+ */ 
+int
+create_pipes() { 
+    // remove any old pipes with same name
+    remove(CONT_RX_PIPE_NAME);
+    remove(CONT_TX_PIPE_NAME);
+
+    // create rx pipe
+    if (mkfifo(CONT_RX_PIPE_NAME, 0666) == -1) {
+            perror("mkfifo");
+            return -1;
+    }
+
+    // create tx pipe
+    if (mkfifo(CONT_TX_PIPE_NAME, 0666) == -1) {
+            perror("mkfifo");
+            return -1;
+    }
+
+    // init fds to -1
+    warm_pipes = malloc (sizeof(struct pipe_fds)); 
+    warm_pipes->rx_fd = -1;
+    warm_pipes->tx_fd = -1;
+
+    return 0;
+}
+
+/* 
+ * Open rx and tx pipes
+ * Return 0 on success, -1 on failure
+ */
+int
+open_pipes() {
+    int tx_fd, rx_fd;
+
+    if (warm_pipes->rx_fd == -1) {
+        if (rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY | O_NONBLOCK) == -1) {
+            return -1;
+        } else {
+            warm_pipes->rx_fd = rx_fd;
+        }
+    }
+
+    if (warm_pipes->tx_fd == -1) {
+        if (tx_fd = open(CONT_TX_PIPE_NAME, O_WRONLY | O_NONBLOCK) == -1) {
+            return -1;
+        }
+        else {
+            warm_pipes->tx_fd = tx_fd;
+        }
+    }
+
+    return 0;
+}
+
+/* 
+ * Cleanup pipes and close fds
+ */
+void
+pipe_cleanup() {
+    remove(CONT_RX_PIPE_NAME);
+    remove(CONT_TX_PIPE_NAME);
+
+    close(warm_pipes->rx_fd);
+    close(warm_pipes->tx_fd); 
+}
+
+/*
+ * Receive incoming packets
+ */
+void
+receive_packets() {
+    /* put in loop or however we want to set this up */ 
+    pkt* packet = malloc (sizeof(pkt));
+
+    if (read(warm_pipes->rx_fd, packet, sizeof(pkt)) == -1) {
+        perror("Read ");
+        return;
+    }
 }
 
 int 
 main(void)
 {
-    /* just see if we can receive a packet */ 
-    int fd = -1;
-    
-	pkt* packet = malloc (sizeof(pkt));
+    int ret = -1;
 
-    /* open fifo to read */
-    while(fd == -1) {
-        fd = open(get_cont_pipe_name(1), O_RDONLY);
-    }
-    
-    while (1) {
-        /* get packet */ 
-        read(fd, packet, sizeof(pkt));
-        printf("Received port: %d\n", packet->pkt_len);
+    /* create pipes */ 
+    if (create_pipes() == -1) {
+        pipe_cleanup();
+        exit(0);
     }
 
-    close(fd);
+    /* open pipes */ 
+    while (ret = -1) {
+        ret = open_pipes();
+    }
+
+    /* receive packets */ 
+    receive_packets();
+
+    pipe_cleanup();
+    return 0;
 }

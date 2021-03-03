@@ -7,7 +7,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#define CONT_NF_PIPE_NAME "/tmp/Cont_%u_PIPE"
+#define CONT_RX_PIPE_NAME "rx_pipe"
+#define CONT_TX_PIPE_NAME "tx_pipe"
 
 typedef struct pkt {
 	void * buf_addr;
@@ -34,6 +35,13 @@ typedef struct pkt {
     uint8_t inner_l4_type:4;
 } pkt;
 
+int
+create_pipes(void);
 
-const char *
-get_cont_pipe_name(unsigned id); 
+int
+open_pipes(void);
+
+struct pipe_fds {
+    int rx_fd;
+    int tx_fd;
+};

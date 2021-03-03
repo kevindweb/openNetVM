@@ -71,10 +71,17 @@ clean_pipes(void);
 void
 cleanup(void);
 
+int
+create_pipes(int ref);
+
+void
+ready_pipes(void);
+
 /* list of initialized pipes */
 struct init_pipe {
         int ref;
         char* tx_pipe;
+        char* rx_pipe;
         struct init_pipe* next;
 };
 
