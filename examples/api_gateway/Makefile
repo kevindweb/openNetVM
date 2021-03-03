@@ -47,7 +47,7 @@ include $(RTE_SDK)/mk/rte.vars.mk
 APP = api_gateway
 
 # all source are stored in SRCS-y
-SRCS-y := api_gateway.c gateway_em.c scaler.c
+SRCS-y := api_gateway.c gateway_em.c scaler.c pipes.c
 
 # OpenNetVM path
 ONVM= $(SRCDIR)/../../onvm

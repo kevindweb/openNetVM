@@ -47,6 +47,9 @@
 // service name for the docker containers
 #define SERVICE "skeleton"
 
+// stack to hold warm container pipe fds
+struct rte_ring* warm_containers;
+
 int
 num_running_containers(void);
 
