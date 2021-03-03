@@ -171,6 +171,9 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                                 scaling_buf->count = 0;
                         }
                 }
+
+                // tell scaler we need another container
+                rte_atomic16_inc(&containers_to_scale);
         }
 
         meta->destination = dst;
@@ -213,10 +216,9 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         }
 
         // for testing - how many containers do we want to ask scaler for
-        int request_containers = 5;
-        if (rte_ring_enqueue(to_scale_ring, &request_containers) < 0) {
-                printf("Failed to send message - message discarded\n");
-        }
+        rte_atomic16_inc(&containers_to_scale);
+        rte_atomic16_inc(&containers_to_scale);
+        rte_atomic16_inc(&containers_to_scale);
 }
 
 void
@@ -225,7 +227,7 @@ sig_handler(int sig) {
                 return;
 
         /* Will stop the processing for all spawned threads in advanced rings mode */
-        rte_atomic16_set(&signal_exit_flag, 1);
+        worker_keep_running = 0;
 }
 
 void
@@ -255,11 +257,8 @@ init_rings() {
         const unsigned flags = 0;
         const unsigned ring_size = 64;
 
-        to_scale_ring = rte_ring_create(_GATE_2_SCALE, ring_size, rte_socket_id(), flags);
         to_gate_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
         scale_buffer_ring = rte_ring_create(_SCALE_BUFFER, NF_QUEUE_RINGSIZE, rte_socket_id(), RING_F_SP_ENQ);
-        if (to_scale_ring == NULL)
-                rte_exit(EXIT_FAILURE, "Problem getting sending ring\n");
         if (to_gate_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
         if (scale_buffer_ring == NULL)
@@ -274,9 +273,12 @@ main(int argc, char *argv[]) {
 
         nf_local_ctx = onvm_nflib_init_nf_local_ctx();
 
+        // thread-safe counter shared with scaler
+        rte_atomic16_init(&containers_to_scale);
+        rte_atomic16_set(&containers_to_scale, 0);
+
         // set up signals for the threads to exit
-        rte_atomic16_init(&signal_exit_flag);
-        rte_atomic16_set(&signal_exit_flag, 0);
+        worker_keep_running = 1;
         onvm_nflib_start_signal_handler(nf_local_ctx, sig_handler);
 
         nf_function_table = onvm_nflib_init_nf_function_table();

@@ -66,6 +66,9 @@ void*
 scaler(void*);
 
 void
+clean_pipes(void);
+
+void
 cleanup(void);
 
 /* list of initialized pipes */

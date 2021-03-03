@@ -52,7 +52,7 @@
 #define HASH_ENTRIES 100  /// TODO: Possibly move this over to state struct.
 
 /* Handle signals and shutdowns between threads */
-rte_atomic16_t signal_exit_flag;
+static uint8_t worker_keep_running;
 
 struct onvm_ft *em_tbl;
 
@@ -62,10 +62,13 @@ const struct rte_memzone *mz_cont_nf;
 
 struct rte_mempool *pktmbuf_pool;
 
+/* Each new flow is a new container to scale, gateway increments, scaler satisfies request */
+rte_atomic16_t containers_to_scale;
+
 static const char *_GATE_2_SCALE = "GATEWAY_2_SCALER";
 static const char *_SCALE_2_GATE = "SCALER_2_GATEWAY";
 static const char *_SCALE_BUFFER = "SCALING_BUFFER";
-struct rte_ring *to_scale_ring, *to_gate_ring, *scale_buffer_ring;
+struct rte_ring *to_gate_ring, *scale_buffer_ring;
 struct packet_buf *scaling_buf;
 
 struct onvm_nf_local_ctx *nf_local_ctx;

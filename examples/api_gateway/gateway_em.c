@@ -17,6 +17,7 @@
 #include "api_gateway.h"
 #include "onvm_flow_table.h"
 #include "onvm_nflib.h"
+#include "onvm_pkt_common.h"
 #include "onvm_pkt_helper.h"
 #include "onvm_table_parser.h"
 
@@ -72,7 +73,7 @@ buffer(void *in) {
         struct packet_buf *pkts_enq_burst;
         int num_deq, i, dst;
         struct rte_mbuf *pkt;
-        while (!rte_atomic16_read(&signal_exit_flag)) {
+        for (; worker_keep_running;) {
                 num_deq =
                     rte_ring_dequeue_burst(scale_buffer_ring, (void **)pkts_deq_burst->buffer, PACKET_READ_SIZE, NULL);
                 if (num_deq == 0 && scaling_buf->count != 0) {
@@ -99,29 +100,26 @@ buffer(void *in) {
 
 /* Turn a container packet into a dpdk rte_mbuf pkt */
 void
-pkt_to_mbuf(pkt *packet, struct rte_mbuf *mbuf_buffer, int inx) {
+pkt_to_mbuf(pkt *packet) {
         struct rte_ether_hdr *pkt_ehdr;
         struct rte_mbuf *pkt = rte_pktmbuf_alloc(pktmbuf_pool);
 
         if (pkt == NULL) {
-                printf("Failed to allocate packets\n");
-                break;
+                printf("Failed to allocate packet\n");
+                return;
         }
 
         /* Append and copy ether header */
-        pkt_ehdr = (struct rte_ether_hdr *)rte_pktmbuf_append(pkt, packet_size);
-        rte_memcpy(pkt_ehdr, ehdr, sizeof(struct rte_ether_hdr));
+        // pkt_ehdr = (struct rte_ether_hdr *)rte_pktmbuf_append(pkt, packet_size);
+        // rte_memcpy(pkt_ehdr, ehdr, sizeof(struct rte_ether_hdr));
 
         struct onvm_pkt_meta *pmeta = onvm_get_pkt_meta(pkt);
-        pmeta->destination = destination;
-        pmeta->flags |= ONVM_SET_BIT(0, LOAD_GEN_BIT);
-        if (action_out) {
-                pmeta->action = ONVM_NF_ACTION_OUT;
-        } else {
-                pmeta->action = ONVM_NF_ACTION_TONF;
-        }
+        pmeta->action = ONVM_NF_ACTION_OUT;
 
-        pkts[inx] = pkt;
+        uint16_t dst;
+        dst = get_ipv4_dst(pkt);
+
+        onvm_pkt_enqueue_port(nf_local_ctx->nf->nf_tx_mgr, dst, pkt);
 }
 
 /* Thread to continuously poll all tx_fds from containers for packets to send out to network */
@@ -137,7 +135,7 @@ polling(void *in) {
                 return NULL;
         }
 
-        while (!rte_atomic16_read(&signal_exit_flag)) {
+        for (; worker_keep_running;) {
                 // reinitialize data
 
                 // batch_size continuously updates
@@ -151,10 +149,9 @@ polling(void *in) {
                         // read the container pipe buffer until its empty
                         while (read(tx_fd, packet, sizeof(pkt)) != -1) {
                                 // convert packet to rte_mbuf and insert into buffer
-                                pkt_to_mbuf(packet, pkts, batch_size++);
+                                pkt_to_mbuf(packet);
                         }
                 }
-                onvm_nflib_return_pkt_bulk(nf_local_ctx->nf, pkts, batch_size);
         }
 
         free(packet);

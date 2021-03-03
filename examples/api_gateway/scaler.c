@@ -208,6 +208,11 @@ ready_pipes() {
         return warm_pipes;
 }
 
+void
+clean_pipes(void) {
+        return;
+}
+
 /* Initialize docker stack to bring the services up */
 int
 init_stack() {
@@ -340,16 +345,20 @@ scaler(void* in) {
                 return NULL;
         }
 
-        while (!rte_atomic16_read(&signal_exit_flag)) {
-                void* msg;
-                if (rte_ring_dequeue(to_scale_ring, &msg) < 0) {
+        uint16_t new_flows;
+        for (; worker_keep_running;) {
+                /*
+                 * thread-safe put value of containers_to_scale into new_flows
+                 * and reset counter back to 0
+                 */
+                if ((new_flows = rte_atomic16_exchange(&containers_to_scale.cnt, 0)) == 0) {
                         // no new flows yet, just do auto-scaling work
-                        usleep(5);
+                        usleep(10);
                         continue;
                 }
 
                 // gateway asked us to do something
-                num_requested += *((int*)msg);
+                num_requested += new_flows;
                 int num_to_scale = num_requested - num_initialized;
                 printf("Received %d containers and need to scale up %d\n", num_requested, num_to_scale);
 

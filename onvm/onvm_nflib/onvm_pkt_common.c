@@ -253,9 +253,7 @@ onvm_pkt_enqueue_tx_thread(struct packet_buf *pkt_buf, struct onvm_nf *nf) {
         pkt_buf->count = 0;
 }
 
-/****************************Internal functions*******************************/
-
-inline static void
+void
 onvm_pkt_enqueue_port(struct queue_mgr *tx_mgr, uint16_t port, struct rte_mbuf *buf) {
         struct packet_buf *port_buf;
 
@@ -268,6 +266,8 @@ onvm_pkt_enqueue_port(struct queue_mgr *tx_mgr, uint16_t port, struct rte_mbuf *
                 onvm_pkt_flush_port_queue(tx_mgr, port);
         }
 }
+
+/****************************Internal functions*******************************/
 
 inline static void
 onvm_pkt_process_next_action(struct queue_mgr *tx_mgr, struct rte_mbuf *pkt, struct onvm_nf *nf) {
