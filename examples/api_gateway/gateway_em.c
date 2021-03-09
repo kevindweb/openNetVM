@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 
 #include <rte_common.h>
@@ -49,6 +50,7 @@ setup_hash(struct state_info *stats) {
         add_rules(em_tbl, "ipv4_rules_file.txt", stats->print_keys, ONVM_TABLE_EM);
         return 0;
 }
+
 const char *
 get_cont_rx_queue_name(unsigned id) {
         /* buffer for return value. Size calculated by %u being replaced
@@ -67,18 +69,18 @@ get_cont_tx_queue_name(unsigned id) {
         return buffer;
 }
 
-void *
-buffer(void *in) {
+void
+buffer() {
         struct packet_buf *pkts_deq_burst;
         struct packet_buf *pkts_enq_burst;
         int num_deq, i, dst;
         struct rte_mbuf *pkt;
         for (; worker_keep_running;) {
                 num_deq =
-                    rte_ring_dequeue_burst(scale_buffer_ring, (void **)pkts_deq_burst->buffer, PACKET_READ_SIZE, NULL);
+                    rte_ring_dequeue_burst(gate_buffer_ring, (void **)pkts_deq_burst->buffer, PACKET_READ_SIZE, NULL);
                 if (num_deq == 0 && scaling_buf->count != 0) {
-                        // TODO: Is a lock necessary here?
-                        rte_ring_enqueue_burst(scale_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE, NULL);
+                        // TODO: Add a rte_atomic on scaling_buf->count
+                        rte_ring_enqueue_burst(gate_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE, NULL);
                         scaling_buf->count = 0;
                 } else {
                         for (i = 0; i < num_deq; i++) {
@@ -90,71 +92,79 @@ buffer(void *in) {
                                         pkts_enq_burst->buffer[pkts_enq_burst->count++] = pkt;
                                 }
                         }
-                        rte_ring_enqueue_burst(scale_buffer_ring, (void **)pkts_enq_burst->buffer, PACKET_READ_SIZE,
+                        rte_ring_enqueue_burst(gate_buffer_ring, (void **)pkts_enq_burst->buffer, PACKET_READ_SIZE,
                                                NULL);
                 }
         }
+
         printf("Buffer thread exiting\n");
-        return NULL;
 }
 
 /* Turn a container packet into a dpdk rte_mbuf pkt */
 void
-pkt_to_mbuf(pkt *packet) {
-        struct rte_ether_hdr *pkt_ehdr;
-        struct rte_mbuf *pkt = rte_pktmbuf_alloc(pktmbuf_pool);
-
-        if (pkt == NULL) {
-                printf("Failed to allocate packet\n");
-                return;
-        }
-
-        /* Append and copy ether header */
-        // pkt_ehdr = (struct rte_ether_hdr *)rte_pktmbuf_append(pkt, packet_size);
-        // rte_memcpy(pkt_ehdr, ehdr, sizeof(struct rte_ether_hdr));
-
-        struct onvm_pkt_meta *pmeta = onvm_get_pkt_meta(pkt);
-        pmeta->action = ONVM_NF_ACTION_OUT;
-
+pkt_to_mbuf(struct rte_mbuf *pkt) {
+        // find which port to send packet to
         uint16_t dst;
         dst = get_ipv4_dst(pkt);
 
         onvm_pkt_enqueue_port(nf_local_ctx->nf->nf_tx_mgr, dst, pkt);
 }
 
-/* Thread to continuously poll all tx_fds from containers for packets to send out to network */
-void *
-polling(void *in) {
-        int tx_fd;
-        int batch_size;
-        int max_packets = 65536;
-        struct rte_mbuf *pkts[max_packets];
-        pkt *packet = malloc(sizeof(pkt));
-        if (packet == NULL) {
-                perror("Issues initializing packets\n");
-                return NULL;
-        }
+/* thread to continuously poll all tx_fds from containers for packets to send out to network */
+void
+polling() {
+        struct rte_mbuf *pkt;
+        void *next_fd;
+        int num_containers = 0;
+        int i;
+
+        // epoll specific initializers
+        int epoll_fd;
+        int event_count;
+        struct epoll_event events[MAX_CONTAINERS];
+
+        // initialize epoll file descriptor for polling
+        epoll_fd = epoll_create1(0);
 
         for (; worker_keep_running;) {
-                // reinitialize data
+                // check for new TX fds to add to epoll
+                while (rte_ring_dequeue(scale_poll_add_ring, &next_fd) >= 0) {
+                        // continuously add fds to epoll
+                        struct epoll_event *event = (struct epoll_event *)(malloc(sizeof(struct epoll_event)));
+                        event->events = EPOLLIN;
+                        epoll_ctl(epoll_fd, EPOLL_CTL_ADD, *(int *)next_fd, event);
 
-                // batch_size continuously updates
-                batch_size = 0;
+                        // make sure we know how many pipes we're tracking
+                        num_containers++;
+                }
 
-                // iterate through all open tx_pipe fds
-                for (;;) {
-                        // TODO: get fd from data structure
-                        tx_fd = 1;
+                while (rte_ring_dequeue(scale_poll_del_ring, &next_fd) >= 0) {
+                        // remove file descriptor to stop listening to that pipe
+                        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, *(int *)next_fd, NULL);
 
+                        num_containers--;
+                }
+
+                if (unlikely(num_containers > MAX_CONTAINERS)) {
+                        perror("We have too many containers, overflow will occur");
+                        break;
+                }
+
+                event_count = epoll_wait(epoll_fd, events, num_containers, POLLING_TIMEOUT);
+                for (i = 0; i < event_count; i++) {
+                        // TODO: implement fairness for polling pipes
                         // read the container pipe buffer until its empty
-                        while (read(tx_fd, packet, sizeof(pkt)) != -1) {
+                        while (read(events[i].data.fd, pkt, sizeof(pkt)) != -1) {
                                 // convert packet to rte_mbuf and insert into buffer
-                                pkt_to_mbuf(packet);
+                                pkt_to_mbuf(pkt);
                         }
                 }
         }
 
-        free(packet);
+        if (close(epoll_fd)) {
+                perror("Couldn't close epoll file descriptor\n");
+                return;
+        }
+
         printf("Polling thread exiting\n");
-        return NULL;
 }

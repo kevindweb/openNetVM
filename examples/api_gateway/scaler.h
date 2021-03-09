@@ -41,9 +41,6 @@
 // warm container ring
 #define WARM_CONTAINER_RING "warm_cont_ring"
 
-// 1024 maximum open file descriptors (stated by linux) / (2 pipes/container)
-#define MAX_CONTAINERS 512
-
 // service name for the docker containers
 #define SERVICE "skeleton"
 
@@ -64,9 +61,6 @@ kill_container_id(char*);
 
 void
 kill_docker(void);
-
-void*
-scaler(void*);
 
 void
 clean_pipes(void);

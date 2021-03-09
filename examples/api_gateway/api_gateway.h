@@ -48,8 +48,14 @@
 #define CONT_TX_PIPE_NAME "/tmp/tx/%d"
 #define PKTMBUF_POOL_NAME "MProc_pktmbuf_pool"
 
+// 1024 maximum open file descriptors (stated by linux) / (2 pipes/container)
+#define MAX_CONTAINERS 512
+
 /* This defines the maximum possible number entries in out flow table. */
 #define HASH_ENTRIES 100  /// TODO: Possibly move this over to state struct.
+
+// How many milliseconds should we set for epoll_wait in the polling thread
+#define POLLING_TIMEOUT 500
 
 /* Handle signals and shutdowns between threads */
 static uint8_t worker_keep_running;
@@ -65,10 +71,15 @@ struct rte_mempool *pktmbuf_pool;
 /* Each new flow is a new container to scale, gateway increments, scaler satisfies request */
 rte_atomic16_t containers_to_scale;
 
-static const char *_GATE_2_SCALE = "GATEWAY_2_SCALER";
-static const char *_SCALE_2_GATE = "SCALER_2_GATEWAY";
-static const char *_SCALE_BUFFER = "SCALING_BUFFER";
-struct rte_ring *to_gate_ring, *scale_buffer_ring;
+// buffer pulls from gateway and scaler ring buffers
+static const char *_GATE_2_BUFFER = "GATEWAY_2_BUFFER";
+static const char *_SCALE_2_BUFFER = "SCALE_2_BUFFER";
+
+// ring to add and delete TX pipes from the polling thread
+static const char *_SCALE_2_POLL_ADD = "SCALE_2_POLL_ADD";
+static const char *_SCALE_2_POLL_DEL = "SCALE_2_POLL_DEL";
+
+struct rte_ring *scale_buffer_ring, *gate_buffer_ring, *scale_poll_add_ring, *scale_poll_del_ring;
 struct packet_buf *scaling_buf;
 
 struct onvm_nf_local_ctx *nf_local_ctx;
@@ -127,11 +138,14 @@ get_ipv4_dst(struct rte_mbuf *pkt);
 void
 init_cont_nf(struct state_info *stats);
 
-void *
-buffer(void *in);
+void
+scaler(void);
 
-void *
-polling(void *in);
+void
+buffer(void);
+
+void
+polling(void);
 
 void
 init_rings(void);

@@ -176,7 +176,7 @@ kill_docker() {
 }
 
 /* Send warm container fds to gateway */
-void
+int
 send_containers() {
         // pipe file descriptors in the stack
         void** pipe_fds;
@@ -188,7 +188,7 @@ send_containers() {
 
         if (num_warm == 0 || num_requested == 0) {
                 // nothing to do, no containers to send
-                return;
+                return 0;
         }
 
         if (num_warm <= num_requested) {
@@ -204,17 +204,18 @@ send_containers() {
         ret = rte_ring_dequeue_bulk(warm_containers, pipe_fds, num_to_pop, NULL);
         if (ret == 0) {
                 perror("Could not pop the stack pipes to send\n");
-                return;
+                return -1;
         }
 
-        // now that they're scaled, enqueue to the scale_to_gate
-        if (rte_ring_enqueue(to_gate_ring, pipe_fds) < 0) {
-                perror("Failed to send containers to gateway\n");
-                return;
+        // now that they're scaled, enqueue to the buffer and polling threads
+        if (rte_ring_enqueue(scale_buffer_ring, pipe_fds) < 0 || rte_ring_enqueue(scale_poll_add_ring, pipe_fds) < 0) {
+                perror("Failed to send file descriptors to NFs\n");
+                return -1;
         }
 
         // our number of initialized containers drops after we pop them
         num_initialized -= num_to_pop;
+        return 0;
 }
 
 void
@@ -224,11 +225,11 @@ cleanup() {
 }
 
 /* scaler runs to maintain warm containers and garbage collect old ones */
-void*
-scaler(void* in) {
+void
+scaler() {
         if (init_stack() == -1) {
                 printf("Failed to start up docker stack\n");
-                return NULL;
+                return;
         }
 
         uint16_t new_flows;
@@ -239,6 +240,7 @@ scaler(void* in) {
                  */
                 if ((new_flows = rte_atomic16_exchange(&containers_to_scale.cnt, 0)) == 0) {
                         // no new flows yet, just do auto-scaling work
+                        // maintain a specific number of "warm" containers
                         usleep(10);
                         continue;
                 }
@@ -254,12 +256,13 @@ scaler(void* in) {
                 }
 
                 // now that they're scaled, enqueue to the scale_to_gate
-                send_containers();
+                if (send_containers() < 0) {
+                        break;
+                };
 
                 break;
         }
 
         printf("Scaler thread exiting\n");
         cleanup();
-        return NULL;
 }

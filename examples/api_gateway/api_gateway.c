@@ -161,7 +161,7 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
         if (dst == -1) {
                 scaling_buf->buffer[scaling_buf->count++] = pkt;
                 if (scaling_buf->count == PACKET_READ_SIZE) {
-                        if (rte_ring_enqueue_bulk(scale_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE,
+                        if (rte_ring_enqueue_bulk(gate_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE,
                                                   NULL) == 0) {
                                 for (int i = 0; i < PACKET_READ_SIZE; i++) {
                                         rte_pktmbuf_free(scaling_buf->buffer[i]);
@@ -182,6 +182,58 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
         return 0;
 }
 
+int
+start_child(const char *tag) {
+        int ret;
+        pthread_t thd;
+        struct onvm_nf_local_ctx *child_local_ctx;
+        struct onvm_nf_init_cfg *child_init_cfg;
+        child_init_cfg = onvm_nflib_init_nf_init_cfg(tag);
+
+        /* Prepare init data for the child */
+        // make service ID something to denote we are not taking packets
+        child_init_cfg->service_id = 5;
+
+        child_local_ctx = onvm_nflib_init_nf_local_ctx();
+
+        if (onvm_nflib_start_nf(child_local_ctx, child_init_cfg) < 0) {
+                printf("Failed to spawn child NF\n");
+                return -1;
+        }
+
+        return 0;
+}
+
+void *
+start_scaler(void *arg) {
+        if (!start_child("scaler") < 0) {
+                // failed
+                return NULL;
+        }
+        scaler();
+        return NULL;
+}
+
+void *
+start_buffer(void *arg) {
+        if (!start_child("buffer") < 0) {
+                // failed
+                return NULL;
+        }
+        buffer();
+        return NULL;
+}
+
+void *
+start_polling(void *arg) {
+        if (!start_child("polling") < 0) {
+                // failed
+                return NULL;
+        }
+        polling();
+        return NULL;
+}
+
 void
 nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         struct onvm_nf *nf = nf_local_ctx->nf;
@@ -198,15 +250,17 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
 
         pthread_t scale_thd;
         // scaler acts as container initializer and garbage collector
-        pthread_create(&scale_thd, NULL, scaler, NULL);
+        pthread_create(&scale_thd, NULL, start_scaler, NULL);
 
         pthread_t buf_thd;
         // buffer acts as the gateway's dispatcher of new flows -> container pipes
-        pthread_create(&buf_thd, NULL, buffer, NULL);
+        pthread_create(&buf_thd, NULL, start_buffer, NULL);
 
         pthread_t poll_thd;
         // polling acts as tx thread that gets all container packets out through network
-        pthread_create(&poll_thd, NULL, polling, NULL);
+        pthread_create(&poll_thd, NULL, start_polling, NULL);
+
+        RTE_LOG(INFO, APP, "Spawned scale, buffer, and poll child NFs\n");
 
         // set up polling mbuf buffer
         pktmbuf_pool = rte_mempool_lookup(PKTMBUF_POOL_NAME);
@@ -231,36 +285,14 @@ sig_handler(int sig) {
 }
 
 void
-init_cont_nf(struct state_info *stats) {
-        if (stats->max_containers <= 0) {
-                stats->max_containers = 4;
-        }
-        uint8_t max_nfs = stats->max_containers;
-        /* set up array for NF tx data */
-        mz_cont_nf = rte_memzone_reserve("container nf array", sizeof(*cont_nfs) * max_nfs, rte_socket_id(), 0);
-        if (mz_cont_nf == NULL)
-                rte_exit(EXIT_FAILURE, "Cannot reserve memory zone for nf information\n");
-        memset(mz_cont_nf->addr, 0, sizeof(*cont_nfs) * max_nfs);
-        cont_nfs = mz_cont_nf->addr;
-
-        printf("Number of containers to be created: %d\n", stats->max_containers);
-        for (int i = 0; i < stats->max_containers; i++) {
-                struct container_nf *nf;
-                nf = &cont_nfs[i];
-                nf->instance_id = i + MAX_NFS;
-                nf->service_id = i + MAX_NFS;
-        }
-}
-
-void
 init_rings() {
         const unsigned flags = 0;
         const unsigned ring_size = 64;
 
-        to_gate_ring = rte_ring_create(_SCALE_2_GATE, ring_size, rte_socket_id(), flags);
-        scale_buffer_ring = rte_ring_create(_SCALE_BUFFER, NF_QUEUE_RINGSIZE, rte_socket_id(), RING_F_SP_ENQ);
-        if (to_gate_ring == NULL)
+        gate_buffer_ring = rte_ring_create(_GATE_2_BUFFER, ring_size, rte_socket_id(), flags);
+        if (gate_buffer_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
+        scale_buffer_ring = rte_ring_create(_SCALE_2_BUFFER, NF_QUEUE_RINGSIZE, rte_socket_id(), RING_F_SP_ENQ);
         if (scale_buffer_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting buffer ring for scaling.\n");
 }
