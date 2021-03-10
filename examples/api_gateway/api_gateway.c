@@ -55,6 +55,7 @@
 #include <rte_lpm.h>
 #include <rte_malloc.h>
 #include <rte_mbuf.h>
+#include <rte_mbuf_core.h>
 
 #include "api_gateway.h"
 #include "onvm_flow_table.h"
