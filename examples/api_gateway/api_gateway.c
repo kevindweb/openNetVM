@@ -158,13 +158,14 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
 
         dst = get_ipv4_dst(pkt);
 
-        // This is a new flow should call the scale API here. Once container is ready add flow to table.
         if (dst == -1) {
+                // new IP flow, buffer packet while we wait for a container
                 scaling_buf->buffer[scaling_buf->count++] = pkt;
                 if (scaling_buf->count == PACKET_READ_SIZE) {
                         if (rte_ring_enqueue_bulk(gate_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE,
                                                   NULL) == 0) {
                                 for (int i = 0; i < PACKET_READ_SIZE; i++) {
+                                        perror("Failed to buffer packet data from gateway on ring\n");
                                         rte_pktmbuf_free(scaling_buf->buffer[i]);
                                 }
                                 return 0;
@@ -175,6 +176,8 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
 
                 // tell scaler we need another container
                 rte_atomic16_inc(&containers_to_scale);
+        } else {
+                // use pipe API to send packet to container through its' RX pipe fd
         }
 
         meta->destination = dst;

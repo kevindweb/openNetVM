@@ -13,6 +13,7 @@
 #include <rte_cycles.h>
 #include <rte_hash.h>
 #include <rte_ip.h>
+#include <rte_malloc.h>
 #include <rte_mbuf.h>
 
 #include "api_gateway.h"
@@ -33,6 +34,7 @@ get_ipv4_dst(struct rte_mbuf *pkt) {
         if (ret < 0)
                 return -1;
 
+        // TODO: flow table should return more info about packet (like container id, pipe file descriptors...)
         int tbl_index = onvm_ft_lookup_key(em_tbl, &key, (char **)&data);
         if (tbl_index < 0)
                 return -1;
@@ -49,24 +51,6 @@ setup_hash(struct state_info *stats) {
         }
         add_rules(em_tbl, "ipv4_rules_file.txt", stats->print_keys, ONVM_TABLE_EM);
         return 0;
-}
-
-const char *
-get_cont_rx_queue_name(unsigned id) {
-        /* buffer for return value. Size calculated by %u being replaced
-         * by maximum 3 digits (plus an extra byte for safety) */
-        static char buffer[sizeof(CONT_NF_RXQ_NAME) + 4];
-        sprintf(buffer, CONT_NF_RXQ_NAME, id);
-        return buffer;
-}
-
-const char *
-get_cont_tx_queue_name(unsigned id) {
-        /* buffer for return value. Size calculated by %u being replaced
-         * by maximum 3 digits (plus an extra byte for safety) */
-        static char buffer[sizeof(CONT_NF_TXQ_NAME) + 4];
-        sprintf(buffer, CONT_NF_TXQ_NAME, id);
-        return buffer;
 }
 
 void
@@ -106,8 +90,31 @@ pkt_to_mbuf(struct rte_mbuf *pkt) {
         // find which port to send packet to
         uint16_t dst;
         dst = get_ipv4_dst(pkt);
+        if (dst == -1) {
+                // TODO: figure out if this is a malicious scenario
+                perror("Red flag: container sent packet we couldn't handle\n");
+                return;
+        }
 
-        onvm_pkt_enqueue_port(nf_local_ctx->nf->nf_tx_mgr, dst, pkt);
+        // enqueue pkt directly (instead of normal NF tx ring)
+        onvm_pkt_enqueue_port(poll_tx_mgr, dst, pkt);
+}
+
+/*
+ * Create a queue_mgr (replacing manager TX thread)
+ * see onvm/onvm_mgr/main.c for example creating queue_mgr
+ */
+struct queue_mgr *
+create_tx_poll_mgr(void) {
+        struct queue_mgr *poll_mgr = rte_calloc(NULL, 1, sizeof(struct queue_mgr), RTE_CACHE_LINE_SIZE);
+        if (poll_mgr == NULL) {
+                return NULL;
+        }
+        poll_mgr->mgr_type_t = MGR;
+        poll_mgr->id = 0;
+        poll_mgr->tx_thread_info = NULL;
+        poll_mgr->nf_rx_bufs = NULL;
+        return poll_mgr;
 }
 
 /* thread to continuously poll all tx_fds from containers for packets to send out to network */

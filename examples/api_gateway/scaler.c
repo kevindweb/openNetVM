@@ -154,6 +154,7 @@ scale_docker(int scale) {
         if (WEXITSTATUS(ret) != 0)
                 return -1;
 
+        int notret;
         return 0;
 }
 

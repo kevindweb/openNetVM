@@ -38,12 +38,11 @@
  * api_gateway.h - This application performs L3 forwarding.
  ********************************************************************/
 
+#include "onvm_common.h"
 #include "onvm_flow_table.h"
 #include "onvm_pkt_common.h"
 
 #define NUM_CONTAINERS 4
-#define CONT_NF_RXQ_NAME "Cont_Client_%u_RX"
-#define CONT_NF_TXQ_NAME "Cont_Client_%u_TX"
 #define CONT_RX_PIPE_NAME "/tmp/rx/%d"
 #define CONT_TX_PIPE_NAME "/tmp/tx/%d"
 #define PKTMBUF_POOL_NAME "MProc_pktmbuf_pool"
@@ -67,6 +66,8 @@ struct container_nf *cont_nfs;
 const struct rte_memzone *mz_cont_nf;
 
 struct rte_mempool *pktmbuf_pool;
+
+struct queue_mgr *poll_tx_mgr;
 
 /* Each new flow is a new container to scale, gateway increments, scaler satisfies request */
 rte_atomic16_t containers_to_scale;
@@ -94,39 +95,6 @@ struct state_info {
         uint8_t max_containers;
 };
 
-struct container_nf {
-        struct rte_ring *rx_q;
-        struct rte_ring *tx_q;
-        uint16_t instance_id;
-        uint16_t service_id;
-};
-
-/* Packet struct that exists on the container */
-typedef struct pkt {
-        void *buf_addr;
-        uint16_t refcnt;
-        uint16_t nb_segs;
-        uint16_t port;
-        uint64_t ol_flags;
-        uint32_t pkt_len;
-        uint16_t data_len;
-        uint16_t vlan_tci;
-        uint16_t vlan_tci_outer;
-        uint16_t buf_len;
-        uint16_t priv_size;
-        uint16_t timesync;
-        uint16_t dynfield1[9];
-        uint32_t packet_type;
-        uint8_t l2_type : 4;
-        uint8_t l3_type : 4;
-        uint8_t l4_type : 4;
-        uint8_t tun_type : 4;
-        uint8_t inner_esp_next_proto;
-        uint8_t inner_l2_type : 4;
-        uint8_t inner_l3_type : 4;
-        uint8_t inner_l4_type : 4;
-} pkt;
-
 /* Function pointers for LPM or EM functionality. */
 
 int
@@ -147,8 +115,20 @@ buffer(void);
 void
 polling(void);
 
+// Helpers
+
 void
 init_rings(void);
 
 void
 sig_handler(int sig);
+
+struct queue_mgr *
+create_tx_poll_mgr(void);
+
+// Pipe read/write helpers
+struct rte_mbuf *
+read_pipe(int fd);
+
+int
+write_pipe(int fd, struct rte_mbuf *packet);

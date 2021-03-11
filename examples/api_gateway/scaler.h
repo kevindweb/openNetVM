@@ -63,10 +63,11 @@ void
 kill_docker(void);
 
 void
-clean_pipes(void);
-
-void
 cleanup(void);
+
+/* pipe API to handle tx/rx for containers */
+void
+clean_pipes(void);
 
 int
 create_pipes(int ref);
