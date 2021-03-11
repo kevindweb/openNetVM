@@ -2,11 +2,12 @@ version: '3.8'
 services:
   # Define the network function to be scaled
   skeleton:
-    build: .
+    # build: .
     # image: "ubuntu:20.04"
+    image: "cont_nf_test:latest"
     volumes:
-      - /local/onvm/openNetVM/examples/api_gateway/scaler:/container
+      # - /home/kdeems/openNetVM/examples/api_gateway/scaler:/container
       - /tmp/rx/{{.Task.Slot}}:/rx_pipe
       - /tmp/tx/{{.Task.Slot}}:/tx_pipe
     working_dir: /container
-    command: ./test.sh
+    command: ./build/app/cont_nf
