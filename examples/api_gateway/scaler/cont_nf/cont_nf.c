@@ -112,8 +112,8 @@ main(void) {
 
         /* open pipes */
         printf("Starting to open pipes\n");
-        while (open_pipes() == -1)
-                ;
+        while (open_pipes() == -1) {
+        }
 
         printf("Initialization finished\n");
 

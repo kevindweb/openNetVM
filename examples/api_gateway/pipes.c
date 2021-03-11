@@ -88,8 +88,8 @@ create_pipes(int ref) {
         // add initialized pipe to list
         struct init_pipe* new_pipe = (struct init_pipe*)malloc(sizeof(struct init_pipe));
         new_pipe->ref = ref;
-        strcpy(new_pipe->tx_pipe, tx_pipe);
-        strcpy(new_pipe->tx_pipe, rx_pipe);
+        strncpy(new_pipe->tx_pipe, tx_pipe, strlen(tx_pipe));
+        strncpy(new_pipe->tx_pipe, rx_pipe, strlen(rx_pipe));
         new_pipe->next = NULL;
 
         if (head == NULL) {

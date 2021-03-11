@@ -259,7 +259,7 @@ scaler() {
                 // now that they're scaled, enqueue to the scale_to_gate
                 if (send_containers() < 0) {
                         break;
-                };
+                }
 
                 break;
         }

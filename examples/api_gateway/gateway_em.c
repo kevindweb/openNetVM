@@ -54,9 +54,7 @@ setup_hash(struct state_info *stats) {
 }
 
 void
-buffer() {
-        struct packet_buf *pkts_deq_burst;
-        struct packet_buf *pkts_enq_burst;
+buffer(void) {
         int num_deq, i, dst;
         struct rte_mbuf *pkt;
         for (; worker_keep_running;) {
@@ -86,11 +84,11 @@ buffer() {
 
 /* Turn a container packet into a dpdk rte_mbuf pkt */
 void
-pkt_to_mbuf(struct rte_mbuf *pkt) {
+enqueue_mbuf(struct rte_mbuf *pkt) {
         // find which port to send packet to
         uint16_t dst;
         dst = get_ipv4_dst(pkt);
-        if (dst == -1) {
+        if (dst == 0) {
                 // TODO: figure out if this is a malicious scenario
                 perror("Red flag: container sent packet we couldn't handle\n");
                 return;
@@ -119,11 +117,13 @@ create_tx_poll_mgr(void) {
 
 /* thread to continuously poll all tx_fds from containers for packets to send out to network */
 void
-polling() {
+polling(void) {
         struct rte_mbuf *pkt;
         void *next_fd;
         int num_containers = 0;
         int i;
+
+        pkt = malloc(sizeof(struct rte_mbuf));
 
         // epoll specific initializers
         int epoll_fd;
@@ -163,7 +163,7 @@ polling() {
                         // read the container pipe buffer until its empty
                         while (read(events[i].data.fd, pkt, sizeof(pkt)) != -1) {
                                 // convert packet to rte_mbuf and insert into buffer
-                                pkt_to_mbuf(pkt);
+                                enqueue_mbuf(pkt);
                         }
                 }
         }

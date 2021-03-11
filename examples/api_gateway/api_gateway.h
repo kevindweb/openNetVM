@@ -46,6 +46,8 @@
 #define CONT_RX_PIPE_NAME "/tmp/rx/%d"
 #define CONT_TX_PIPE_NAME "/tmp/tx/%d"
 #define PKTMBUF_POOL_NAME "MProc_pktmbuf_pool"
+#define _GATE_2_BUFFER "GATEWAY_2_BUFFER"
+#define _SCALE_2_BUFFER "SCALE_2_BUFFER"
 
 // 1024 maximum open file descriptors (stated by linux) / (2 pipes/container)
 #define MAX_CONTAINERS 512
@@ -73,15 +75,13 @@ struct queue_mgr *poll_tx_mgr;
 rte_atomic16_t containers_to_scale;
 
 // buffer pulls from gateway and scaler ring buffers
-static const char *_GATE_2_BUFFER = "GATEWAY_2_BUFFER";
-static const char *_SCALE_2_BUFFER = "SCALE_2_BUFFER";
 
 // ring to add and delete TX pipes from the polling thread
-static const char *_SCALE_2_POLL_ADD = "SCALE_2_POLL_ADD";
-static const char *_SCALE_2_POLL_DEL = "SCALE_2_POLL_DEL";
+// static const char *_SCALE_2_POLL_ADD = "SCALE_2_POLL_ADD";
+// static const char *_SCALE_2_POLL_DEL = "SCALE_2_POLL_DEL";
 
 struct rte_ring *scale_buffer_ring, *gate_buffer_ring, *scale_poll_add_ring, *scale_poll_del_ring;
-struct packet_buf *scaling_buf;
+struct packet_buf *scaling_buf, *pkts_deq_burst, *pkts_enq_burst;
 
 struct onvm_nf_local_ctx *nf_local_ctx;
 
@@ -104,13 +104,26 @@ uint16_t
 get_ipv4_dst(struct rte_mbuf *pkt);
 
 void
-init_cont_nf(struct state_info *stats);
+nf_setup(struct onvm_nf_local_ctx *nf_local_ctx);
+
+/* functions to start up threads as child NFs */
+int
+start_child(const char *tag);
+
+void *
+start_scaler(void *arg);
 
 void
 scaler(void);
 
+void *
+start_buffer(void *arg);
+
 void
 buffer(void);
+
+void *
+start_polling(void *arg);
 
 void
 polling(void);
@@ -125,6 +138,9 @@ sig_handler(int sig);
 
 struct queue_mgr *
 create_tx_poll_mgr(void);
+
+void
+enqueue_mbuf(struct rte_mbuf *pkt);
 
 // Pipe read/write helpers
 struct rte_mbuf *

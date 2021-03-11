@@ -86,6 +86,7 @@ parse_app_args(int argc, char *argv[], const char *progname, struct state_info *
                                 break;
                         case 'n':
                                 stats->max_containers = strtoul(optarg, NULL, 10);
+                                break;
                         case 'k':
                                 stats->print_keys = 1;
                                 break;
@@ -120,6 +121,9 @@ print_stats(__attribute__((unused)) struct onvm_nf_local_ctx *nf_local_ctx) {
         struct state_info *stats = (struct state_info *)nf->data;
 
         /* Clear screen and move to top left */
+        /* Clear screen and move to top left */
+        printf("%s%s", clr, topLeft);
+
         printf("\nStatistics ====================================");
         int i;
         for (i = 0; i < stats->max_containers; i++) {
@@ -154,11 +158,11 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                 print_stats(nf_local_ctx);
                 counter = 0;
         }
-        uint16_t dst;
+        int16_t dst;
 
         dst = get_ipv4_dst(pkt);
 
-        if (dst == -1) {
+        if (dst == 0) {
                 // new IP flow, buffer packet while we wait for a container
                 scaling_buf->buffer[scaling_buf->count++] = pkt;
                 if (scaling_buf->count == PACKET_READ_SIZE) {
@@ -188,8 +192,6 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
 
 int
 start_child(const char *tag) {
-        int ret;
-        pthread_t thd;
         struct onvm_nf_local_ctx *child_local_ctx;
         struct onvm_nf_init_cfg *child_init_cfg;
         child_init_cfg = onvm_nflib_init_nf_init_cfg(tag);
@@ -209,8 +211,8 @@ start_child(const char *tag) {
 }
 
 void *
-start_scaler(void *arg) {
-        if (!start_child("scaler") < 0) {
+start_scaler(void *arg __attribute__((unused))) {
+        if (start_child("scaler") < 0) {
                 // failed
                 return NULL;
         }
@@ -219,8 +221,8 @@ start_scaler(void *arg) {
 }
 
 void *
-start_buffer(void *arg) {
-        if (!start_child("buffer") < 0) {
+start_buffer(void *arg __attribute__((unused))) {
+        if (start_child("buffer") < 0) {
                 // failed
                 return NULL;
         }
@@ -229,8 +231,8 @@ start_buffer(void *arg) {
 }
 
 void *
-start_polling(void *arg) {
-        if (!start_child("polling") < 0) {
+start_polling(void *arg __attribute__((unused))) {
+        if (start_child("polling") < 0) {
                 // failed
                 return NULL;
         }
@@ -289,7 +291,7 @@ sig_handler(int sig) {
 }
 
 void
-init_rings() {
+init_rings(void) {
         const unsigned flags = 0;
         const unsigned ring_size = 64;
 
