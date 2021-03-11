@@ -107,7 +107,7 @@ create_pipes(int ref) {
 
 /* Add ready containers to warm containers stack */
 void
-ready_pipes() {
+ready_pipes(void) {
         int tx_fd, rx_fd;
         struct init_pipe* tmp;
         struct init_pipe* iterator = head;
@@ -120,6 +120,7 @@ ready_pipes() {
                 if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) &&
                     (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
                         // add (tx_fd, rx_fd) to the stack
+                        warm_pipes = malloc(sizeof(struct pipe_fds));
                         warm_pipes->rx_pipe = rx_fd;
                         warm_pipes->tx_pipe = tx_fd;
 
@@ -150,7 +151,7 @@ ready_pipes() {
         }
 
         // pipe ready
-        if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) &
+        if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) &&
             (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
                 // add (tx_fd, rx_fd) to the stack
                 warm_pipes->rx_pipe = rx_fd;

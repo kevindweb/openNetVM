@@ -38,6 +38,7 @@
  * api_gateway.h - This application performs L3 forwarding.
  ********************************************************************/
 
+#include <rte_lpm.h>
 #include "onvm_common.h"
 #include "onvm_flow_table.h"
 #include "onvm_pkt_common.h"
@@ -59,11 +60,15 @@
 #define POLLING_TIMEOUT 500
 
 /* Handle signals and shutdowns between threads */
-static uint8_t worker_keep_running;
+uint8_t worker_keep_running;
 
 struct onvm_ft *em_tbl;
 
-struct container_nf *cont_nfs;
+/* tuple of pipe file descriptors */
+struct pipe_fds {
+        int tx_pipe;
+        int rx_pipe;
+};
 
 const struct rte_memzone *mz_cont_nf;
 
@@ -148,3 +153,64 @@ read_pipe(int fd);
 
 int
 write_pipe(int fd, struct rte_mbuf *packet);
+
+// Flow table helper
+
+#define COMMENT_LEAD_CHAR ('#')
+
+/*
+ * This struct extends the onvm_ft struct to support longest-prefix match.
+ * The depth or length of the rule is the number of bits of the rule that is stored in a specific entry.
+ * Range is from 1-32.
+ */
+struct onvm_parser_ipv4_5tuple {
+        struct onvm_ft_ipv4_5tuple key;
+        uint32_t src_addr_depth;
+        uint32_t dst_addr_depth;
+};
+/* Struct that holds info about each flow, and is stored at each flow table entry.
+    Dest stores the destination NF or action to take.
+ */
+struct data {
+        uint8_t dest;
+};
+
+enum {
+        CB_FLD_SRC_ADDR,
+        CB_FLD_DST_ADDR,
+        CB_FLD_SRC_PORT_DLM,
+        CB_FLD_SRC_PORT,
+        CB_FLD_DST_PORT,
+        CB_FLD_DST_PORT_DLM,
+        CB_FLD_PROTO,
+        CB_FLD_DEST,
+        CB_FLD_NUM,
+};
+
+enum {
+        ONVM_TABLE_EM,
+        ONVM_TABLE_LPM,
+};
+
+int
+get_cb_field(char **in, uint32_t *fd, int base, unsigned long lim, char dlm);
+
+int
+parse_ipv4_net(char *in, uint32_t *addr, uint32_t *depth);
+
+/* This function fills the key and return the destination or action to be stored in the table entry.*/
+int
+parse_ipv4_5tuple_rule(char *str, struct onvm_parser_ipv4_5tuple *ipv4_tuple);
+
+/* Bypass comment and empty lines */
+int
+is_bypass_line(char *buff);
+
+/*
+ * This function takes in a file name and parses the file contents to
+ * add custom flows to the the flow table passed in. If print_keys is true,
+ * print each key that has been added to the flow table. Currently
+ * hash and lpm is suppoerted.
+ */
+int
+add_rules(void *tbl, const char *rule_path, uint8_t print_keys, int table_type);

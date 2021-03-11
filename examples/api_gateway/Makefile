@@ -52,8 +52,7 @@ SRCS-y := api_gateway.c gateway_em.c scaler.c pipes.c
 # OpenNetVM path
 ONVM= $(SRCDIR)/../../onvm
 
-# CFLAGS += $(WERROR_FLAGS) -O3 $(USER_FLAGS)
-CFLAGS += -O3 $(USER_FLAGS)
+CFLAGS += $(WERROR_FLAGS) -O3 $(USER_FLAGS)
 CFLAGS += -lpthread
 
 CFLAGS += -I$(ONVM)/onvm_nflib

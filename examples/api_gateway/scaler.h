@@ -54,7 +54,13 @@ int
 init_container(int);
 
 int
+init_stack(void);
+
+int
 scale_docker(int);
+
+int
+send_containers(void);
 
 int
 kill_container_id(char*);
@@ -81,10 +87,4 @@ struct init_pipe {
         char* tx_pipe;
         char* rx_pipe;
         struct init_pipe* next;
-};
-
-/* tuple of pipe file descriptors */
-struct pipe_fds {
-        int tx_pipe;
-        int rx_pipe;
 };

@@ -72,7 +72,7 @@ int num_requested = 0;
 /* API Calls below */
 /* Return the number of containers up in docker-compose */
 int
-num_running_containers() {
+num_running_containers(void) {
         FILE* fp;
         int id_hash_length = 14;
         char container_id[id_hash_length];
@@ -101,7 +101,7 @@ num_running_containers() {
 
 /* Initialize docker stack to bring the services up */
 int
-init_stack() {
+init_stack(void) {
         /*
          * Set up first named pipe
          * Initialize docker container
@@ -154,7 +154,6 @@ scale_docker(int scale) {
         if (WEXITSTATUS(ret) != 0)
                 return -1;
 
-        int notret;
         return 0;
 }
 
@@ -170,7 +169,7 @@ kill_container_id(char* hash_id) {
 
 /* Helper for testing, kill the docker service */
 void
-kill_docker() {
+kill_docker(void) {
         char docker_call[100];
         sprintf(docker_call, "docker stack rm %s", SERVICE);
         system(docker_call);
@@ -178,11 +177,11 @@ kill_docker() {
 
 /* Send warm container fds to gateway */
 int
-send_containers() {
+send_containers(void) {
         // pipe file descriptors in the stack
-        void** pipe_fds;
+        // void** pipe_fds;
         int num_to_pop;
-        int ret;
+        // int ret;
 
         // number of completely ready pipes
         int num_warm = rte_ring_count(warm_containers);
@@ -202,17 +201,18 @@ send_containers() {
                 num_requested = 0;
         }
 
-        ret = rte_ring_dequeue_bulk(warm_containers, pipe_fds, num_to_pop, NULL);
-        if (ret == 0) {
-                perror("Could not pop the stack pipes to send\n");
-                return -1;
-        }
+        // ret = rte_ring_dequeue_bulk(warm_containers, pipe_fds, num_to_pop, NULL);
+        // if (ret == 0) {
+        //         perror("Could not pop the stack pipes to send\n");
+        //         return -1;
+        // }
 
-        // now that they're scaled, enqueue to the buffer and polling threads
-        if (rte_ring_enqueue(scale_buffer_ring, pipe_fds) < 0 || rte_ring_enqueue(scale_poll_add_ring, pipe_fds) < 0) {
-                perror("Failed to send file descriptors to NFs\n");
-                return -1;
-        }
+        // // now that they're scaled, enqueue to the buffer and polling threads
+        // if (rte_ring_enqueue(scale_buffer_ring, pipe_fds) < 0 || rte_ring_enqueue(scale_poll_add_ring, pipe_fds) < 0)
+        // {
+        //         perror("Failed to send file descriptors to NFs\n");
+        //         return -1;
+        // }
 
         // our number of initialized containers drops after we pop them
         num_initialized -= num_to_pop;
@@ -220,26 +220,28 @@ send_containers() {
 }
 
 void
-cleanup() {
+cleanup(void) {
         kill_docker();
         clean_pipes();
 }
 
 /* scaler runs to maintain warm containers and garbage collect old ones */
 void
-scaler() {
+scaler(void) {
         if (init_stack() == -1) {
                 printf("Failed to start up docker stack\n");
                 return;
         }
 
         uint16_t new_flows;
+        uint16_t scale_cnt;
         for (; worker_keep_running;) {
                 /*
                  * thread-safe put value of containers_to_scale into new_flows
                  * and reset counter back to 0
                  */
-                if ((new_flows = rte_atomic16_exchange(&containers_to_scale.cnt, 0)) == 0) {
+                scale_cnt = (uint16_t)containers_to_scale.cnt;
+                if ((new_flows = rte_atomic16_exchange(&scale_cnt, 0)) == 0) {
                         // no new flows yet, just do auto-scaling work
                         // maintain a specific number of "warm" containers
                         usleep(10);
