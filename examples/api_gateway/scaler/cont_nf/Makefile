@@ -49,15 +49,4 @@ APP = cont_nf
 # all source are stored in SRCS-y
 SRCS-y := cont_nf.c
 
-# OpenNetVM path
-# ONVM= $(SRCDIR)/../../onvm
-
-# CFLAGS += -O3 $(USER_FLAGS)
-# CFLAGS += -static
-
-# CFLAGS += -I$(ONVM)/onvm_nflib
-# CFLAGS += -I$(ONVM)/lib
-# LDFLAGS += $(ONVM)/onvm_nflib/$(RTE_TARGET)/libonvm.a
-# LDFLAGS += $(ONVM)/lib/$(RTE_TARGET)/lib/libonvmhelper.a -lm
-
 include $(RTE_SDK)/mk/rte.extapp.mk
