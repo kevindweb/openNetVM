@@ -28,3 +28,6 @@ read_packet(void);
 /* Helper to send packet out through network */
 int
 write_packet(struct rte_mbuf*);
+
+void
+receive_packets(void);

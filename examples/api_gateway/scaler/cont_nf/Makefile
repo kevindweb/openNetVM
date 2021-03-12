@@ -41,7 +41,7 @@ endif
 RTE_TARGET ?= $(RTE_TARGET)
 
 # Default target, can be overriden by command line or environment
-include $(RTE_SDK)/mk/rte.vars.mk
+# include $(RTE_SDK)/mk/rte.vars.mk
 
 # binary name
 APP = cont_nf
@@ -49,4 +49,6 @@ APP = cont_nf
 # all source are stored in SRCS-y
 SRCS-y := cont_nf.c
 
-include $(RTE_SDK)/mk/rte.extapp.mk
+CFLAGS += $(WERROR_FLAGS) -O3 $(USER_FLAGS)
+
+# include $(RTE_SDK)/mk/rte.extapp.mk

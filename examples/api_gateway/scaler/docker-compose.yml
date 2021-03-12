@@ -7,4 +7,4 @@ services:
       - /tmp/rx/{{.Task.Slot}}:/rx_pipe
       - /tmp/tx/{{.Task.Slot}}:/tx_pipe
     working_dir: /container
-    command: ./build/app/cont_nf
+    command: ./cont_nf

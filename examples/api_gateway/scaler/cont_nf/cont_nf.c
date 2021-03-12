@@ -1,6 +1,5 @@
-#include <rte_mbuf_core.h>
-
 #include "cont_nf.h"
+#include "dpdk/rte_mbuf_core.h"
 
 const int pkt_size = sizeof(struct rte_mbuf*);
 
@@ -39,12 +38,12 @@ int rx_fd;
 // }
 
 int
-open_pipes() {
-        if (rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY | O_NONBLOCK) == -1) {
+open_pipes(void) {
+        if ((rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY | O_NONBLOCK)) == -1) {
                 return -1;
         }
 
-        if (tx_fd = open(CONT_TX_PIPE_NAME, O_WRONLY | O_NONBLOCK) == -1) {
+        if ((tx_fd = open(CONT_TX_PIPE_NAME, O_WRONLY | O_NONBLOCK)) == -1) {
                 return -1;
         }
 
@@ -52,7 +51,7 @@ open_pipes() {
 }
 
 void
-pipe_cleanup() {
+pipe_cleanup(void) {
         remove(CONT_RX_PIPE_NAME);
         remove(CONT_TX_PIPE_NAME);
 
@@ -61,7 +60,7 @@ pipe_cleanup() {
 }
 
 struct rte_mbuf*
-read_packet() {
+read_packet(void) {
         size_t pkt_size = sizeof(struct rte_mbuf);
         struct rte_mbuf* packet = malloc(pkt_size);
         if (read(rx_fd, packet, pkt_size) == -1) {
@@ -84,7 +83,7 @@ write_packet(struct rte_mbuf* packet) {
  * Receive incoming packets
  */
 void
-receive_packets() {
+receive_packets(void) {
         /* put in loop or however we want to set this up */
         struct rte_mbuf* packet = read_packet();
         if (packet == NULL) {
@@ -102,8 +101,6 @@ receive_packets() {
 
 int
 main(void) {
-        int ret = -1;
-
         /* create pipes */
         // if (create_pipes() == -1) {
         //         pipe_cleanup();
