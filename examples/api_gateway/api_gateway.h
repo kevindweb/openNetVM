@@ -49,6 +49,7 @@
 #define PKTMBUF_POOL_NAME "MProc_pktmbuf_pool"
 #define _GATE_2_BUFFER "GATEWAY_2_BUFFER"
 #define _SCALE_2_BUFFER "SCALE_2_BUFFER"
+#define COMMENT_LEAD_CHAR ('#')
 
 // 1024 maximum open file descriptors (stated by linux) / (2 pipes/container)
 #define MAX_CONTAINERS 512
@@ -64,12 +65,6 @@ uint8_t worker_keep_running;
 
 struct onvm_ft *em_tbl;
 
-/* tuple of pipe file descriptors */
-struct pipe_fds {
-        int tx_pipe;
-        int rx_pipe;
-};
-
 const struct rte_memzone *mz_cont_nf;
 
 struct rte_mempool *pktmbuf_pool;
@@ -79,16 +74,21 @@ struct queue_mgr *poll_tx_mgr;
 /* Each new flow is a new container to scale, gateway increments, scaler satisfies request */
 rte_atomic16_t containers_to_scale;
 
+/* communicate how many containers with flows set between the threads */
+rte_atomic16_t num_running_containers;
+
 // buffer pulls from gateway and scaler ring buffers
 
-// ring to add and delete TX pipes from the polling thread
-// static const char *_SCALE_2_POLL_ADD = "SCALE_2_POLL_ADD";
-// static const char *_SCALE_2_POLL_DEL = "SCALE_2_POLL_DEL";
-
-struct rte_ring *scale_buffer_ring, *gate_buffer_ring, *scale_poll_add_ring, *scale_poll_del_ring;
+struct rte_ring *scale_buffer_ring, *gate_buffer_ring;
 struct packet_buf *scaling_buf, *pkts_deq_burst, *pkts_enq_burst;
 
 struct onvm_nf_local_ctx *nf_local_ctx;
+
+/* tuple of pipe file descriptors */
+struct pipe_fds {
+        int tx_pipe;
+        int rx_pipe;
+};
 
 /*Struct that holds all NF state information */
 struct state_info {
@@ -134,7 +134,6 @@ void
 polling(void);
 
 // Helpers
-
 void
 init_rings(void);
 
@@ -147,6 +146,12 @@ create_tx_poll_mgr(void);
 void
 enqueue_mbuf(struct rte_mbuf *pkt);
 
+int
+add_fd_epoll(int fd);
+
+int
+rm_fd_epoll(int fd);
+
 // Pipe read/write helpers
 struct rte_mbuf *
 read_pipe(int fd);
@@ -155,8 +160,6 @@ int
 write_pipe(int fd, struct rte_mbuf *packet);
 
 // Flow table helper
-
-#define COMMENT_LEAD_CHAR ('#')
 
 /*
  * This struct extends the onvm_ft struct to support longest-prefix match.

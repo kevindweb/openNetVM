@@ -44,11 +44,14 @@
 // service name for the docker containers
 #define SERVICE "skeleton"
 
+// how many warm containers to maintain at any time
+#define WARM_CONTAINERS_REQUIRED 10
+
 // stack to hold warm container pipe fds
 struct rte_ring* warm_containers;
 
-int
-num_running_containers(void);
+// how many pipes/containers have we spun up, but aren't ready for flows
+int created_not_ready;
 
 int
 init_container(int);

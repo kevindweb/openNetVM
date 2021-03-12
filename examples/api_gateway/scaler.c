@@ -71,33 +71,33 @@ int num_requested = 0;
 
 /* API Calls below */
 /* Return the number of containers up in docker-compose */
-int
-num_running_containers(void) {
-        FILE* fp;
-        int id_hash_length = 14;
-        char container_id[id_hash_length];
-        int num = 0;
-        char docker_call[100];
+// int
+// num_running_containers(void) {
+//         FILE* fp;
+//         int id_hash_length = 14;
+//         char container_id[id_hash_length];
+//         int num = 0;
+//         char docker_call[100];
 
-        sprintf(docker_call, "docker ps -aq --filter='name=%s'", SERVICE);
-        fp = popen(docker_call, "r");
-        if (!fp) {
-                printf("Docker failed to execute\n");
-                return -1;
-        }
+//         sprintf(docker_call, "docker ps -aq --filter='name=%s'", SERVICE);
+//         fp = popen(docker_call, "r");
+//         if (!fp) {
+//                 printf("Docker failed to execute\n");
+//                 return -1;
+//         }
 
-        while (fgets(container_id, id_hash_length, fp) != NULL) {
-                // remove new line character
-                container_id[id_hash_length - 2] = '\0';
-                printf("Container hash: %s\n", container_id);
-                num++;
-        }
+//         while (fgets(container_id, id_hash_length, fp) != NULL) {
+//                 // remove new line character
+//                 container_id[id_hash_length - 2] = '\0';
+//                 printf("Container hash: %s\n", container_id);
+//                 num++;
+//         }
 
-        // close file descriptor
-        pclose(fp);
+//         // close file descriptor
+//         pclose(fp);
 
-        return num;
-}
+//         return num;
+// }
 
 /* Initialize docker stack to bring the services up */
 int
@@ -175,50 +175,6 @@ kill_docker(void) {
         system(docker_call);
 }
 
-/* Send warm container fds to gateway */
-int
-send_containers(void) {
-        // pipe file descriptors in the stack
-        // void** pipe_fds;
-        int num_to_pop;
-        // int ret;
-
-        // number of completely ready pipes
-        int num_warm = rte_ring_count(warm_containers);
-
-        if (num_warm == 0 || num_requested == 0) {
-                // nothing to do, no containers to send
-                return 0;
-        }
-
-        if (num_warm <= num_requested) {
-                // need to pop the entire available stack
-                num_requested -= num_warm;
-                num_to_pop = num_warm;
-        } else {
-                // only need to pop the first <num_requested>
-                num_to_pop = num_requested;
-                num_requested = 0;
-        }
-
-        // ret = rte_ring_dequeue_bulk(warm_containers, pipe_fds, num_to_pop, NULL);
-        // if (ret == 0) {
-        //         perror("Could not pop the stack pipes to send\n");
-        //         return -1;
-        // }
-
-        // // now that they're scaled, enqueue to the buffer and polling threads
-        // if (rte_ring_enqueue(scale_buffer_ring, pipe_fds) < 0 || rte_ring_enqueue(scale_poll_add_ring, pipe_fds) < 0)
-        // {
-        //         perror("Failed to send file descriptors to NFs\n");
-        //         return -1;
-        // }
-
-        // our number of initialized containers drops after we pop them
-        num_initialized -= num_to_pop;
-        return 0;
-}
-
 void
 cleanup(void) {
         kill_docker();
@@ -233,34 +189,27 @@ scaler(void) {
                 return;
         }
 
-        uint16_t new_flows;
-        uint16_t scale_cnt;
+        int num_to_scale;
+
+        // initlaize, to be modified by pipes.c
+        created_not_ready = 0;
+
         for (; worker_keep_running;) {
-                /*
-                 * thread-safe put value of containers_to_scale into new_flows
-                 * and reset counter back to 0
-                 */
-                scale_cnt = (uint16_t)containers_to_scale.cnt;
-                if ((new_flows = rte_atomic16_exchange(&scale_cnt, 0)) == 0) {
-                        // no new flows yet, just do auto-scaling work
-                        // maintain a specific number of "warm" containers
-                        usleep(10);
-                        continue;
-                }
-
-                // gateway asked us to do something
-                num_requested += new_flows;
-                int num_to_scale = num_requested - num_initialized;
-                printf("Received %d containers and need to scale up %d\n", num_requested, num_to_scale);
-
+                num_to_scale = WARM_CONTAINERS_REQUIRED - (rte_ring_count(scale_buffer_ring) + created_not_ready);
                 if (num_to_scale > 0) {
-                        // need to scale more to answer the gateway's request
+                        /*
+                         * The number of initialized + "not ready" containers represents
+                         * the current amount of "warm" containers
+                         * Need to make sure this number stays constant (psuedo-auto-scaling)
+                         */
+                        printf("Need to scale %d more containers\n", num_to_scale);
                         scale_docker(num_to_scale);
-                }
-
-                // now that they're scaled, enqueue to the scale_to_gate
-                if (send_containers() < 0) {
+                } else if (unlikely(num_to_scale) < 0) {
+                        perror("The number to scale should not be negative!");
                         break;
+                } else {
+                        // no new flows, just sleep for a bit
+                        usleep(10);
                 }
 
                 break;

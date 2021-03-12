@@ -102,6 +102,8 @@ create_pipes(int ref) {
                 iterator->next = new_pipe;
         }
 
+        created_not_ready++;
+
         return 0;
 }
 
@@ -124,10 +126,12 @@ ready_pipes(void) {
                         warm_pipes->rx_pipe = rx_fd;
                         warm_pipes->tx_pipe = tx_fd;
 
-                        if (rte_ring_enqueue(warm_containers, (void*)warm_pipes) < 0) {
+                        if (rte_ring_enqueue(scale_buffer_ring, (void*)warm_pipes) < 0) {
                                 perror("Failed to send containers to gateway\n");
                                 return;
                         }
+
+                        created_not_ready--;
 
                         // remove from init pipes list
                         if (iterator == head) {
@@ -157,10 +161,12 @@ ready_pipes(void) {
                 warm_pipes->rx_pipe = rx_fd;
                 warm_pipes->tx_pipe = tx_fd;
 
-                if (rte_ring_enqueue(warm_containers, (void*)warm_pipes) < 0) {
+                if (rte_ring_enqueue(scale_buffer_ring, (void*)warm_pipes) < 0) {
                         perror("Failed to send containers to gateway\n");
                         return;
                 }
+
+                created_not_ready--;
 
                 // remove from init pipes list
                 if (iterator == head) {
