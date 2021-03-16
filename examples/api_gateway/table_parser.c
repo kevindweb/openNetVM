@@ -183,3 +183,70 @@ add_rules(void *tbl, const char *rule_path, uint8_t print_keys, int table_type) 
         fclose(fh);
         return 0;
 }
+
+/* Functions for the buffer map data structure
+ * Responsible for mapping IP flow to ring of
+ * buffered packets
+ * Gateway fills this and buffer removes when
+ * containers are ready from scaler
+ */
+
+int
+setup_buffer_map(void) {
+        buffer_map = onvm_ft_create(MAX_CONTAINERS, sizeof(struct rte_ring *));
+        if (buffer_map == NULL) {
+                printf("Unable to create buffer map");
+                return -1;
+        }
+
+        return 0;
+}
+
+/* Retrieve the ring buffering this IP flow */
+struct rte_ring *
+get_buffer_flow(struct rte_mbuf *pkt) {
+        struct rte_ring *ring = NULL;
+        struct onvm_ft_ipv4_5tuple key;
+
+        int ret = onvm_ft_fill_key(&key, pkt);
+        if (ret < 0)
+                return NULL;
+
+        // TODO: flow table should return more info about packet (like container id, pipe file descriptors...)
+        int tbl_index = onvm_ft_lookup_key(em_tbl, &key, (char **)&ring);
+        if (tbl_index < 0)
+                return NULL;
+
+        return ring;
+}
+
+const char *
+get_flow_queue_name(struct rte_mbuf *pkt) {
+}
+
+/* Create new ring for buffer map */
+struct ring *
+new_ring_buffer_map(struct rte_mbuf *pkt) {
+        const unsigned flags = 0;
+        const char *q_name = get_flow_queue_name(pkt);
+
+        return rte_ring_create(q_name, MAX_FLOW_PACKETS, rte_socket_id(), flags);
+}
+
+/* Add packet to buffer map, determine if it's new (needs new ring) */
+int
+add_buffer_map(struct rte_mbuf *pkt) {
+        struct rte_ring *ring = get_buffer_flow(pkt);
+        if (ring == NULL) {
+                // first of it's kind, need new ring
+                ring = new_ring_buffer_map(pkt);
+                if (ring == NULL) {
+                        perror("Failed to create ring for buffer map.");
+                        return -1;
+                }
+        }
+
+        // TODO: add lock around buffer map to avoid race conditions
+        // when dequeueing all packets
+        rte_ring_enqueue(ring, (void *)pkt);
+}

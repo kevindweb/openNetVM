@@ -60,19 +60,22 @@
 // How many milliseconds should we set for epoll_wait in the polling thread
 #define POLLING_TIMEOUT 500
 
+// Maximum number of packets buffered in a ring for each flow
+#define MAX_FLOW_PACKETS 4096
+
 /* Handle signals and shutdowns between threads */
 uint8_t worker_keep_running;
 
+/* Handle mapping of IP flow to container pipe fds */
 struct onvm_ft *em_tbl;
+/* Handle mapping of IP flow to linked_list of buffered packets */
+struct onvm_ft *buffer_map;
 
 const struct rte_memzone *mz_cont_nf;
 
 struct rte_mempool *pktmbuf_pool;
 
 struct queue_mgr *poll_tx_mgr;
-
-/* Each new flow is a new container to scale, gateway increments, scaler satisfies request */
-rte_atomic16_t containers_to_scale;
 
 /* communicate how many containers with flows set between the threads */
 rte_atomic16_t num_running_containers;
@@ -99,14 +102,6 @@ struct state_info {
         uint8_t print_keys;
         uint8_t max_containers;
 };
-
-/* Function pointers for LPM or EM functionality. */
-
-int
-setup_hash(struct state_info *stats);
-
-uint16_t
-get_ipv4_dst(struct rte_mbuf *pkt);
 
 void
 nf_setup(struct onvm_nf_local_ctx *nf_local_ctx);
@@ -195,6 +190,14 @@ enum {
         ONVM_TABLE_LPM,
 };
 
+/* Function pointers for LPM or EM functionality. */
+
+int
+setup_hash(struct state_info *stats);
+
+uint16_t
+get_ipv4_dst(struct rte_mbuf *pkt);
+
 int
 get_cb_field(char **in, uint32_t *fd, int base, unsigned long lim, char dlm);
 
@@ -217,3 +220,12 @@ is_bypass_line(char *buff);
  */
 int
 add_rules(void *tbl, const char *rule_path, uint8_t print_keys, int table_type);
+
+int
+setup_buffer_map(void);
+
+int
+add_buffer_map(struct rte_mbuf *pkt);
+
+struct ring *
+new_ring_buffer_map(struct rte_mbuf *pkt);

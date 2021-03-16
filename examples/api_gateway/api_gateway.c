@@ -164,24 +164,12 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
 
         if (dst == 0) {
                 // new IP flow, buffer packet while we wait for a container
-                scaling_buf->buffer[scaling_buf->count++] = pkt;
-                if (scaling_buf->count == PACKET_READ_SIZE) {
-                        if (rte_ring_enqueue_bulk(gate_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE,
-                                                  NULL) == 0) {
-                                for (int i = 0; i < PACKET_READ_SIZE; i++) {
-                                        perror("Failed to buffer packet data from gateway on ring\n");
-                                        rte_pktmbuf_free(scaling_buf->buffer[i]);
-                                }
-                                return 0;
-                        } else {
-                                scaling_buf->count = 0;
-                        }
+                if (add_buffer_map(pkt) < 0) {
+                        perror("Failed to buffer packet from gateway\n");
                 }
-
-                // tell scaler we need another container
-                rte_atomic16_inc(&containers_to_scale);
         } else {
                 // use pipe API to send packet to container through its' RX pipe fd
+                write_pipe(dst, pkt);
         }
 
         meta->destination = dst;
@@ -250,6 +238,12 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
                 rte_exit(EXIT_FAILURE, "Unable to setup Hash\n");
         }
 
+        if (setup_buffer_map() < 0) {
+                onvm_nflib_stop(nf_local_ctx);
+                rte_free(stats);
+                rte_exit(EXIT_FAILURE, "Unable to setup buffer map\n");
+        }
+
         printf("Hash table successfully created. \n");
 
         init_rings();
@@ -274,11 +268,6 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
                 onvm_nflib_stop(nf_local_ctx);
                 rte_exit(EXIT_FAILURE, "Cannot find mbuf pool!\n");
         }
-
-        // for testing - how many containers do we want to ask scaler for
-        rte_atomic16_inc(&containers_to_scale);
-        rte_atomic16_inc(&containers_to_scale);
-        rte_atomic16_inc(&containers_to_scale);
 }
 
 void
@@ -310,10 +299,6 @@ main(int argc, char *argv[]) {
         const char *progname = argv[0];
 
         nf_local_ctx = onvm_nflib_init_nf_local_ctx();
-
-        // thread-safe counter shared with scaler
-        rte_atomic16_init(&containers_to_scale);
-        rte_atomic16_set(&containers_to_scale, 0);
 
         // set up signals for the threads to exit
         worker_keep_running = 1;

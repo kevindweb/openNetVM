@@ -54,20 +54,31 @@ buffer(void) {
 
                 if (rte_atomic16_read(&num_running_containers) >= MAX_CONTAINERS) {
                         // cannot afford to add new container
+                        perror("Max containers/flows hit");
                         continue;
                 }
 
+                uint32_t i = 0;
+                struct rte_hash *hash = buffer_map->hash;
+                struct rte_ring *ring;
+                struct onvm_ft_ipv4_5tuple *flow;
+
                 // TODO: use buffer map to make sure we have new flows that need a container, sleep if not
-                while (rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == 0) {
+                while (rte_hash_iterate(hash, (const void **)(&flow), (void **)(&ring), &i) >= 0 &&
+                       rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == 0) {
                         /*
-                         * New containers/pipes are ready
+                         * New containers/pipes are ready and we have an unassigned IP flow
                          * Get the first available buffered flow (maybe random for fairness)
+                         * De-buffer every packet from this flow and push to the tx pipe fd
                          * Add to flow table with <flow>:<struct container> (with pipe fds and other data)
                          * Add rx pipe to epoll for polling
-                         * De-buffer every packet from this flow and push to the tx pipe fd
                          */
+
                         add_fd_epoll(pipe->rx_pipe);
                 }
+
+                // either we have no more flows, or no more warm containers, sleep
+                usleep(10);
         }
 
         printf("Buffer thread exiting\n");
@@ -128,7 +139,7 @@ polling(void) {
                         // TODO: implement fairness for polling pipes
                         // read the container pipe buffer until its empty
                         while (read(events[i].data.fd, pkt, sizeof(pkt)) != -1) {
-                                // convert packet to rte_mbuf and insert into buffer
+                                // enqueue rte_mbuf onto DPDK port
                                 enqueue_mbuf(pkt);
                         }
                 }

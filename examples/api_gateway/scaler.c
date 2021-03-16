@@ -212,6 +212,14 @@ scaler(void) {
                         usleep(10);
                 }
 
+                if (created_not_ready > 0) {
+                        // only test pipe readiness if there are some that haven't succeeded
+                        ready_pipes();
+                } else if (unlikely(created_not_ready) < 0) {
+                        perror("We shouldn't have a negative amount of pipes!");
+                        break;
+                }
+
                 break;
         }
 
