@@ -161,7 +161,6 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
         int16_t dst;
 
         dst = get_ipv4_dst(pkt);
-
         if (dst == 0) {
                 // new IP flow, buffer packet while we wait for a container
                 if (add_buffer_map(pkt) < 0) {

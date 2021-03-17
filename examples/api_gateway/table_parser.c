@@ -204,16 +204,10 @@ setup_buffer_map(void) {
 
 /* Retrieve the ring buffering this IP flow */
 struct rte_ring *
-get_buffer_flow(struct rte_mbuf *pkt) {
+get_buffer_flow(struct onvm_ft_ipv4_5tuple key) {
         struct rte_ring *ring = NULL;
-        struct onvm_ft_ipv4_5tuple key;
 
-        int ret = onvm_ft_fill_key(&key, pkt);
-        if (ret < 0)
-                return NULL;
-
-        // TODO: flow table should return more info about packet (like container id, pipe file descriptors...)
-        int tbl_index = onvm_ft_lookup_key(em_tbl, &key, (char **)&ring);
+        int tbl_index = onvm_ft_lookup_key(buffer_map, &key, (char **)&ring);
         if (tbl_index < 0)
                 return NULL;
 
@@ -221,14 +215,18 @@ get_buffer_flow(struct rte_mbuf *pkt) {
 }
 
 const char *
-get_flow_queue_name(struct rte_mbuf *pkt) {
+get_flow_queue_name(struct onvm_ft_ipv4_5tuple key) {
+        static char buffer[sizeof(FLOW_RING_NAME) + 2];
+
+        snprintf(buffer, sizeof(buffer) - 1, FLOW_RING_NAME, key.src_addr, key.src_port);
+        return buffer;
 }
 
 /* Create new ring for buffer map */
-struct ring *
-new_ring_buffer_map(struct rte_mbuf *pkt) {
+struct rte_ring *
+new_ring_buffer_map(struct onvm_ft_ipv4_5tuple key) {
         const unsigned flags = 0;
-        const char *q_name = get_flow_queue_name(pkt);
+        const char *q_name = get_flow_queue_name(key);
 
         return rte_ring_create(q_name, MAX_FLOW_PACKETS, rte_socket_id(), flags);
 }
@@ -236,10 +234,17 @@ new_ring_buffer_map(struct rte_mbuf *pkt) {
 /* Add packet to buffer map, determine if it's new (needs new ring) */
 int
 add_buffer_map(struct rte_mbuf *pkt) {
-        struct rte_ring *ring = get_buffer_flow(pkt);
+        struct onvm_ft_ipv4_5tuple key;
+        int ret = onvm_ft_fill_key(&key, pkt);
+        if (ret < 0) {
+                perror("Packet couldn't be converted to ipv4_5tuple");
+                return -1;
+        }
+
+        struct rte_ring *ring = get_buffer_flow(key);
         if (ring == NULL) {
                 // first of it's kind, need new ring
-                ring = new_ring_buffer_map(pkt);
+                ring = new_ring_buffer_map(key);
                 if (ring == NULL) {
                         perror("Failed to create ring for buffer map.");
                         return -1;
@@ -249,4 +254,23 @@ add_buffer_map(struct rte_mbuf *pkt) {
         // TODO: add lock around buffer map to avoid race conditions
         // when dequeueing all packets
         rte_ring_enqueue(ring, (void *)pkt);
+        return 0;
+}
+
+/* Dequeue entire flow ring and free flow from buffer map */
+int32_t
+dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, struct rte_ring *ring, int tx_fd) {
+        struct rte_mbuf *pkt;
+        int ret;
+        while ((ret = rte_ring_dequeue(ring, (void **)(&pkt))) > 0) {
+                // write packets coming from ring into the container
+                write_pipe(tx_fd, pkt);
+        }
+
+        if (ret < 0) {
+                return -1;
+        }
+
+        // remove flow from buffer map
+        return onvm_ft_remove_key(buffer_map, key);
 }

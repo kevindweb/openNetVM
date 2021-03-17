@@ -32,25 +32,26 @@ buffer(void) {
         struct pipe_fds *pipe = malloc(sizeof(struct pipe_fds));
 
         for (; worker_keep_running;) {
-                num_deq =
-                    rte_ring_dequeue_burst(gate_buffer_ring, (void **)pkts_deq_burst->buffer, PACKET_READ_SIZE, NULL);
-                if (num_deq == 0 && scaling_buf->count != 0) {
-                        // TODO: Add a rte_atomic on scaling_buf->count
-                        rte_ring_enqueue_burst(gate_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE, NULL);
-                        scaling_buf->count = 0;
-                } else {
-                        for (i = 0; i < num_deq; i++) {
-                                pkt = pkts_deq_burst->buffer[i];
-                                dst = get_ipv4_dst(pkt);
-                                if (dst >= 0) {
-                                        // send_to_pipe()
-                                } else {
-                                        pkts_enq_burst->buffer[pkts_enq_burst->count++] = pkt;
-                                }
-                        }
-                        rte_ring_enqueue_burst(gate_buffer_ring, (void **)pkts_enq_burst->buffer, PACKET_READ_SIZE,
-                                               NULL);
-                }
+                // num_deq =
+                //     rte_ring_dequeue_burst(gate_buffer_ring, (void **)pkts_deq_burst->buffer, PACKET_READ_SIZE,
+                //     NULL);
+                // if (num_deq == 0 && scaling_buf->count != 0) {
+                //         // TODO: Add a rte_atomic on scaling_buf->count
+                //         rte_ring_enqueue_burst(gate_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE,
+                //         NULL); scaling_buf->count = 0;
+                // } else {
+                //         for (i = 0; i < num_deq; i++) {
+                //                 pkt = pkts_deq_burst->buffer[i];
+                //                 dst = get_ipv4_dst(pkt);
+                //                 if (dst >= 0) {
+                //                         // send_to_pipe()
+                //                 } else {
+                //                         pkts_enq_burst->buffer[pkts_enq_burst->count++] = pkt;
+                //                 }
+                //         }
+                //         rte_ring_enqueue_burst(gate_buffer_ring, (void **)pkts_enq_burst->buffer, PACKET_READ_SIZE,
+                //                                NULL);
+                // }
 
                 if (rte_atomic16_read(&num_running_containers) >= MAX_CONTAINERS) {
                         // cannot afford to add new container
@@ -73,6 +74,18 @@ buffer(void) {
                          * Add to flow table with <flow>:<struct container> (with pipe fds and other data)
                          * Add rx pipe to epoll for polling
                          */
+
+                        // push all buffered packets to the pipe
+                        if (dequeue_and_free_buffer_map(flow, ring, pipe) < 0) {
+                                perror("Failed to dequeue packet flows from ring");
+                                continue;
+                        }
+
+                        struct data *data = NULL;
+                        if (onvm_ft_add_key(em_tbl, flow, (char **)&data) < 0) {
+                                perror("Couldn't add IP flow to flow table");
+                                continue;
+                        }
 
                         add_fd_epoll(pipe->rx_pipe);
                 }

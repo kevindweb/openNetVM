@@ -47,6 +47,7 @@
 #define CONT_RX_PIPE_NAME "/tmp/rx/%d"
 #define CONT_TX_PIPE_NAME "/tmp/tx/%d"
 #define PKTMBUF_POOL_NAME "MProc_pktmbuf_pool"
+#define FLOW_RING_NAME "IPv4_Flow_%u_%d"
 #define _GATE_2_BUFFER "GATEWAY_2_BUFFER"
 #define _SCALE_2_BUFFER "SCALE_2_BUFFER"
 #define COMMENT_LEAD_CHAR ('#')
@@ -227,5 +228,14 @@ setup_buffer_map(void);
 int
 add_buffer_map(struct rte_mbuf *pkt);
 
-struct ring *
-new_ring_buffer_map(struct rte_mbuf *pkt);
+struct rte_ring *
+new_ring_buffer_map(struct onvm_ft_ipv4_5tuple key);
+
+struct rte_ring *
+get_buffer_flow(struct onvm_ft_ipv4_5tuple key);
+
+const char *
+get_flow_queue_name(struct onvm_ft_ipv4_5tuple key);
+
+int32_t
+dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, struct rte_ring *ring, int tx_fd);
