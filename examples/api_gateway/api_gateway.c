@@ -168,7 +168,7 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                 }
         } else {
                 // use pipe API to send packet to container through its' RX pipe fd
-                write_pipe(dst, pkt);
+                write_packet(dst, pkt);
         }
 
         meta->destination = dst;

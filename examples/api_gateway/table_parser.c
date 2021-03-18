@@ -264,7 +264,7 @@ dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, struct rte_ring *ri
         int ret;
         while ((ret = rte_ring_dequeue(ring, (void **)(&pkt))) > 0) {
                 // write packets coming from ring into the container
-                write_pipe(tx_fd, pkt);
+                write_packet(tx_fd, pkt);
         }
 
         if (ret < 0) {

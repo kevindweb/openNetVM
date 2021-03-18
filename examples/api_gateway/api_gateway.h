@@ -150,10 +150,10 @@ rm_fd_epoll(int fd);
 
 // Pipe read/write helpers
 struct rte_mbuf *
-read_pipe(int fd);
+read_packet(int fd);
 
 int
-write_pipe(int fd, struct rte_mbuf *packet);
+write_packet(int fd, struct rte_mbuf *packet);
 
 // Flow table helper
 

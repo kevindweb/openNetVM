@@ -27,42 +27,18 @@ int epoll_fd = -1;
 
 void
 buffer(void) {
-        int num_deq, i, dst;
-        struct rte_mbuf *pkt;
-        struct pipe_fds *pipe = malloc(sizeof(struct pipe_fds));
+        uint32_t i = 0;
+        struct pipe_fds *pipe;
+        struct rte_hash *hash = buffer_map->hash;
+        struct rte_ring *ring;
+        struct onvm_ft_ipv4_5tuple *flow;
 
         for (; worker_keep_running;) {
-                // num_deq =
-                //     rte_ring_dequeue_burst(gate_buffer_ring, (void **)pkts_deq_burst->buffer, PACKET_READ_SIZE,
-                //     NULL);
-                // if (num_deq == 0 && scaling_buf->count != 0) {
-                //         // TODO: Add a rte_atomic on scaling_buf->count
-                //         rte_ring_enqueue_burst(gate_buffer_ring, (void **)scaling_buf->buffer, PACKET_READ_SIZE,
-                //         NULL); scaling_buf->count = 0;
-                // } else {
-                //         for (i = 0; i < num_deq; i++) {
-                //                 pkt = pkts_deq_burst->buffer[i];
-                //                 dst = get_ipv4_dst(pkt);
-                //                 if (dst >= 0) {
-                //                         // send_to_pipe()
-                //                 } else {
-                //                         pkts_enq_burst->buffer[pkts_enq_burst->count++] = pkt;
-                //                 }
-                //         }
-                //         rte_ring_enqueue_burst(gate_buffer_ring, (void **)pkts_enq_burst->buffer, PACKET_READ_SIZE,
-                //                                NULL);
-                // }
-
                 if (rte_atomic16_read(&num_running_containers) >= MAX_CONTAINERS) {
                         // cannot afford to add new container
                         perror("Max containers/flows hit");
                         continue;
                 }
-
-                uint32_t i = 0;
-                struct rte_hash *hash = buffer_map->hash;
-                struct rte_ring *ring;
-                struct onvm_ft_ipv4_5tuple *flow;
 
                 // TODO: use buffer map to make sure we have new flows that need a container, sleep if not
                 while (rte_hash_iterate(hash, (const void **)(&flow), (void **)(&ring), &i) >= 0 &&
@@ -76,7 +52,7 @@ buffer(void) {
                          */
 
                         // push all buffered packets to the pipe
-                        if (dequeue_and_free_buffer_map(flow, ring, pipe) < 0) {
+                        if (dequeue_and_free_buffer_map(flow, ring, pipe->tx_pipe) < 0) {
                                 perror("Failed to dequeue packet flows from ring");
                                 continue;
                         }
@@ -136,8 +112,6 @@ polling(void) {
         struct rte_mbuf *pkt;
         int i;
 
-        pkt = malloc(sizeof(struct rte_mbuf));
-
         // epoll specific initializers
         int event_count;
         struct epoll_event events[MAX_CONTAINERS];
@@ -151,7 +125,7 @@ polling(void) {
                 for (i = 0; i < event_count; i++) {
                         // TODO: implement fairness for polling pipes
                         // read the container pipe buffer until its empty
-                        while (read(events[i].data.fd, pkt, sizeof(pkt)) != -1) {
+                        while ((pkt = read_packet(events[i].data.fd)) != NULL) {
                                 // enqueue rte_mbuf onto DPDK port
                                 enqueue_mbuf(pkt);
                         }
