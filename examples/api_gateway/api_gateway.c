@@ -162,6 +162,7 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
 
         dst = get_ipv4_dst(pkt);
         if (dst == 0) {
+                // TODO: @bdevierno1 need to set flow to buffer new flow - need locks
                 // new IP flow, buffer packet while we wait for a container
                 if (add_buffer_map(pkt) < 0) {
                         perror("Failed to buffer packet from gateway\n");
@@ -208,16 +209,6 @@ start_scaler(void *arg __attribute__((unused))) {
 }
 
 void *
-start_buffer(void *arg __attribute__((unused))) {
-        if (start_child("buffer") < 0) {
-                // failed
-                return NULL;
-        }
-        buffer();
-        return NULL;
-}
-
-void *
 start_polling(void *arg __attribute__((unused))) {
         if (start_child("polling") < 0) {
                 // failed
@@ -251,15 +242,11 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         // scaler acts as container initializer and garbage collector
         pthread_create(&scale_thd, NULL, start_scaler, NULL);
 
-        pthread_t buf_thd;
-        // buffer acts as the gateway's dispatcher of new flows -> container pipes
-        pthread_create(&buf_thd, NULL, start_buffer, NULL);
-
         pthread_t poll_thd;
         // polling acts as tx thread that gets all container packets out through network
         pthread_create(&poll_thd, NULL, start_polling, NULL);
 
-        RTE_LOG(INFO, APP, "Spawned scale, buffer, and poll child NFs\n");
+        RTE_LOG(INFO, APP, "Spawned scaler and poll child NFs\n");
 
         // set up polling mbuf buffer
         pktmbuf_pool = rte_mempool_lookup(PKTMBUF_POOL_NAME);
@@ -283,6 +270,7 @@ init_rings(void) {
         const unsigned flags = 0;
         const unsigned ring_size = 64;
 
+        // TODO: @bdevierno1 need to add a ring of onvm_ft_ipv4_5tuple here
         gate_buffer_ring = rte_ring_create(_GATE_2_BUFFER, ring_size, rte_socket_id(), flags);
         if (gate_buffer_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");

@@ -25,54 +25,6 @@
 
 int epoll_fd = -1;
 
-void
-buffer(void) {
-        uint32_t i = 0;
-        struct pipe_fds *pipe;
-        struct rte_hash *hash = buffer_map->hash;
-        struct rte_ring *ring;
-        struct onvm_ft_ipv4_5tuple *flow;
-
-        for (; worker_keep_running;) {
-                if (rte_atomic16_read(&num_running_containers) >= MAX_CONTAINERS) {
-                        // cannot afford to add new container
-                        perror("Max containers/flows hit");
-                        continue;
-                }
-
-                // TODO: use buffer map to make sure we have new flows that need a container, sleep if not
-                while (rte_hash_iterate(hash, (const void **)(&flow), (void **)(&ring), &i) >= 0 &&
-                       rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == 0) {
-                        /*
-                         * New containers/pipes are ready and we have an unassigned IP flow
-                         * Get the first available buffered flow (maybe random for fairness)
-                         * De-buffer every packet from this flow and push to the tx pipe fd
-                         * Add to flow table with <flow>:<struct container> (with pipe fds and other data)
-                         * Add rx pipe to epoll for polling
-                         */
-
-                        // push all buffered packets to the pipe
-                        if (dequeue_and_free_buffer_map(flow, ring, pipe->tx_pipe) < 0) {
-                                perror("Failed to dequeue packet flows from ring");
-                                continue;
-                        }
-
-                        struct data *data = NULL;
-                        if (onvm_ft_add_key(em_tbl, flow, (char **)&data) < 0) {
-                                perror("Couldn't add IP flow to flow table");
-                                continue;
-                        }
-
-                        add_fd_epoll(pipe->rx_pipe);
-                }
-
-                // either we have no more flows, or no more warm containers, sleep
-                usleep(10);
-        }
-
-        printf("Buffer thread exiting\n");
-}
-
 /* Turn a container packet into a dpdk rte_mbuf pkt */
 void
 enqueue_mbuf(struct rte_mbuf *pkt) {
@@ -161,7 +113,7 @@ add_fd_epoll(int fd) {
 
 int
 rm_fd_epoll(int fd) {
-        if (fd < 0 || epoll_fd < 0 || rte_atomic16_read(&num_running_containers) > MAX_CONTAINERS) {
+        if (fd < 0 || epoll_fd < 0) {
                 // bad input
                 return -1;
         }

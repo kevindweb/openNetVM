@@ -118,12 +118,6 @@ void
 scaler(void);
 
 void *
-start_buffer(void *arg);
-
-void
-buffer(void);
-
-void *
 start_polling(void *arg);
 
 void

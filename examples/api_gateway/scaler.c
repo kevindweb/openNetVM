@@ -114,7 +114,7 @@ init_stack(void) {
                 return -1;
 
         // docker command to start container
-        const char* command = "docker stack deploy -c ./scaler/docker-compose.yml skeleton";
+        const char *command = "docker stack deploy -c ./scaler/docker-compose.yml skeleton";
         int ret = system(command);
 
         if (WEXITSTATUS(ret) != 0)
@@ -159,7 +159,7 @@ scale_docker(int scale) {
 
 /* Garbage collector helper to kill container by ID */
 int
-kill_container_id(char* hash_id) {
+kill_container_id(char *hash_id) {
         char docker_call[36];
         // docker_call string is 36 characters with a 12 character container hash id + \0
         // 36 characters -> docker rm -f <container hash id>\0
@@ -179,6 +179,57 @@ void
 cleanup(void) {
         kill_docker();
         clean_pipes();
+}
+
+int
+move_buffer_to_container(void) {
+        uint32_t i = 0;
+        struct pipe_fds *pipe;
+        struct rte_ring *ring;
+        struct onvm_ft_ipv4_5tuple *flow;
+
+        if (rte_atomic16_read(&num_running_containers) >= MAX_CONTAINERS) {
+                // cannot afford to add new container
+                perror("Max containers/flows hit");
+                return -1;
+        }
+
+        /*
+         * TODO: @bdevierno1 dequeue new ring to find next buffered onvm_ft_ipv4_5tuple
+         * instead of onvm_ft_iterate
+         * scale_buffer_ring is still required because we won't always have new flows
+         * when containers are ready
+         */
+
+        // loop while there are buffered flow rings, and warm containers to service them
+        while (onvm_ft_iterate(buffer_map, (const void **)(&flow), (void **)(&ring), &i) >= 0 &&
+               rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == 0) {
+                /*
+                 * New containers/pipes are ready and we have an unassigned IP flow
+                 * Get the first available buffered flow (maybe random for fairness)
+                 * De-buffer every packet from this flow and push to the tx pipe fd
+                 * Add to flow table with <flow>:<struct container> (with pipe fds and other data)
+                 * Add rx pipe to epoll for polling
+                 */
+
+                // TODO: @bdevierno1 need to modify this dequeue function to push buffered packets to tx_pipe
+                // push all buffered packets to the pipe
+                if (dequeue_and_free_buffer_map(flow, ring, pipe->tx_pipe) < 0) {
+                        perror("Failed to dequeue packet flows from ring");
+                        continue;
+                }
+
+                struct data *data = NULL;
+                if (onvm_ft_add_key(em_tbl, flow, (char **)&data) < 0) {
+                        perror("Couldn't add IP flow to flow table");
+                        continue;
+                }
+
+                // TODO: @bdevierno1 need to keep this to give polling thread more pipes
+                add_fd_epoll(pipe->rx_pipe);
+        }
+
+        return 0;
 }
 
 /* scaler runs to maintain warm containers and garbage collect old ones */

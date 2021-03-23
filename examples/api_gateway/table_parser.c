@@ -191,6 +191,12 @@ add_rules(void *tbl, const char *rule_path, uint8_t print_keys, int table_type) 
  * containers are ready from scaler
  */
 
+/*
+ * TODO: @bdevierno1 functions below were for buffer map, but some still apply
+ * most of the functions will be used, but need to be changed to use an array
+ * instead of ring for each flow buffer
+ */
+
 int
 setup_buffer_map(void) {
         buffer_map = onvm_ft_create(MAX_CONTAINERS, sizeof(struct rte_ring *));
@@ -251,7 +257,6 @@ add_buffer_map(struct rte_mbuf *pkt) {
                 }
         }
 
-        // TODO: add lock around buffer map to avoid race conditions
         // when dequeueing all packets
         rte_ring_enqueue(ring, (void *)pkt);
         return 0;

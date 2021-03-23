@@ -63,7 +63,7 @@ int
 scale_docker(int);
 
 int
-send_containers(void);
+move_buffer_to_container(void);
 
 int
 kill_container_id(char*);
