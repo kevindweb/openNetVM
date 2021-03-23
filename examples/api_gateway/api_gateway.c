@@ -263,6 +263,10 @@ sig_handler(int sig) {
 
         /* Will stop the processing for all spawned threads in advanced rings mode */
         worker_keep_running = 0;
+
+        onvm_nflib_stop(nf_local_ctx);
+        onvm_ft_free(em_tbl);
+        rte_memzone_free(mz_cont_nf);
 }
 
 void

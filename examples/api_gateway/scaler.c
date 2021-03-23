@@ -235,6 +235,9 @@ move_buffer_to_container(void) {
 /* scaler runs to maintain warm containers and garbage collect old ones */
 void
 scaler(void) {
+        // initlaize, to be modified by pipes.c
+        created_not_ready = 0;
+
         if (init_stack() == -1) {
                 printf("Failed to start up docker stack\n");
                 return;
@@ -242,11 +245,9 @@ scaler(void) {
 
         int num_to_scale;
 
-        // initlaize, to be modified by pipes.c
-        created_not_ready = 0;
-
         for (; worker_keep_running;) {
                 num_to_scale = WARM_CONTAINERS_REQUIRED - (rte_ring_count(scale_buffer_ring) + created_not_ready);
+                printf("Num to scale: %d not ready: %d\n", num_to_scale, created_not_ready);
                 if (num_to_scale > 0) {
                         /*
                          * The number of initialized + "not ready" containers represents
@@ -256,24 +257,23 @@ scaler(void) {
                         printf("Need to scale %d more containers\n", num_to_scale);
                         scale_docker(num_to_scale);
                 } else if (unlikely(num_to_scale) < 0) {
-                        perror("The number to scale should not be negative!");
+                        printf("Failure: The number to scale should not be negative.");
                         break;
                 } else {
                         // no new flows, just sleep for a bit
-                        usleep(10);
+                        sleep(1);
                 }
 
                 if (created_not_ready > 0) {
                         // only test pipe readiness if there are some that haven't succeeded
                         ready_pipes();
                 } else if (unlikely(created_not_ready) < 0) {
-                        perror("We shouldn't have a negative amount of pipes!");
+                        printf("Failure: We shouldn't have a negative amount of pipes.");
                         break;
                 }
-
-                break;
         }
 
         printf("Scaler thread exiting\n");
         cleanup();
+        worker_keep_running = 0;
 }

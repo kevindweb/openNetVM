@@ -45,7 +45,7 @@
 #define SERVICE "skeleton"
 
 // how many warm containers to maintain at any time
-#define WARM_CONTAINERS_REQUIRED 10
+#define WARM_CONTAINERS_REQUIRED 2
 
 // stack to hold warm container pipe fds
 struct rte_ring* warm_containers;
@@ -87,7 +87,7 @@ ready_pipes(void);
 /* list of initialized pipes */
 struct init_pipe {
         int ref;
-        char* tx_pipe;
-        char* rx_pipe;
+        char tx_pipe[15];
+        char rx_pipe[15];
         struct init_pipe* next;
 };
