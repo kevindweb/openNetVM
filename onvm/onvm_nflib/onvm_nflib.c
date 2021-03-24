@@ -1723,9 +1723,9 @@ onvm_nflib_get_go_script_path(void) {
         token = strstr(cwd, examples_path);
         *token = '\0';
         token_len = strlen(token);
-        cwd = cwd + token_len;
 
-        cwd_len = strlen(cwd);
+        cwd_len = strlen(cwd) + token_len;
+        cwd = cwd + token_len;
         go_script_len = strlen(go_script);
         wd_nf_len = strlen(examples_path);
         total_directory_size = cwd_len + go_script_len;
