@@ -34,21 +34,20 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-ifeq ($(RTE_SDK),)
-$(error "Please define RTE_SDK environment variable")
-endif
-
-RTE_TARGET ?= $(RTE_TARGET)
-
-# Default target, can be overriden by command line or environment
-# include $(RTE_SDK)/mk/rte.vars.mk
+CC=gcc
+CFLAGS=-I. -Wall -Wextra -O0 -g3
+DEPS= cont_nf.h
 
 # binary name
 APP = cont_nf
 
-# all source are stored in SRCS-y
-SRCS-y := cont_nf.c
+%.o: %.c $(DEPS)
+	$(CC) -c -o $@ $< $(CFLAGS)
 
-CFLAGS += $(WERROR_FLAGS) -O3 $(USER_FLAGS)
+cont: cont_nf.o
+	$(CC) -o $(APP) cont_nf.o
 
-# include $(RTE_SDK)/mk/rte.extapp.mk
+.PHONY: clean
+
+clean:
+	rm -f $(APP) *.o

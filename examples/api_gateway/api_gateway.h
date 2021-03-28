@@ -44,8 +44,10 @@
 #include "onvm_pkt_common.h"
 
 #define NUM_CONTAINERS 4
-#define CONT_RX_PIPE_NAME "/tmp/rx/%d"
-#define CONT_TX_PIPE_NAME "/tmp/tx/%d"
+#define PIPE_DIR "/tmp/pipe"
+#define CONT_PIPE_DIR_NAME "/tmp/pipe/%d"
+#define CONT_RX_PIPE_NAME "/tmp/pipe/%d/rx"
+#define CONT_TX_PIPE_NAME "/tmp/pipe/%d/tx"
 #define PKTMBUF_POOL_NAME "MProc_pktmbuf_pool"
 #define FLOW_RING_NAME "IPv4_Flow_%u_%d"
 #define _GATE_2_BUFFER "GATEWAY_2_BUFFER"

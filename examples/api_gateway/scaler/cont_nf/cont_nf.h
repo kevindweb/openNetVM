@@ -3,8 +3,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define CONT_RX_PIPE_NAME "/rx_pipe"
-#define CONT_TX_PIPE_NAME "/tx_pipe"
+#define CONT_RX_PIPE_NAME "/pipe/rx"
+#define CONT_TX_PIPE_NAME "/pipe/tx"
 
 // TODO: not sure we still need this if pies are created on the host side
 int

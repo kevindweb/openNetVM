@@ -238,6 +238,11 @@ scaler(void) {
         // initlaize, to be modified by pipes.c
         created_not_ready = 0;
 
+        if (init_pipe_dir() != 0) {
+                printf("Failed to initialize pipe directory %s\n", PIPE_DIR);
+                return;
+        }
+
         if (init_stack() == -1) {
                 printf("Failed to start up docker stack\n");
                 return;
@@ -255,7 +260,10 @@ scaler(void) {
                          * Need to make sure this number stays constant (psuedo-auto-scaling)
                          */
                         printf("Need to scale %d more containers\n", num_to_scale);
-                        scale_docker(num_to_scale);
+                        if (scale_docker(num_to_scale) != 0) {
+                                printf("Failed to scale containers\n");
+                                break;
+                        }
                 } else if (unlikely(num_to_scale) < 0) {
                         printf("Failure: The number to scale should not be negative.");
                         break;

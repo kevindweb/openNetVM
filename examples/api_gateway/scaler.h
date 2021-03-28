@@ -38,6 +38,8 @@
  * scaler.h - This application performs L3 forwarding.
  ********************************************************************/
 
+#include <ftw.h>
+
 // warm container ring
 #define WARM_CONTAINER_RING "warm_cont_ring"
 
@@ -75,6 +77,9 @@ void
 cleanup(void);
 
 /* pipe API to handle tx/rx for containers */
+int
+init_pipe_dir(void);
+
 void
 clean_pipes(void);
 
@@ -84,10 +89,20 @@ create_pipes(int ref);
 void
 ready_pipes(void);
 
+int
+unlink_cb(const char* fpath, __attribute__((unused)) const struct stat* sb, __attribute__((unused)) int typeflag,
+          __attribute__((unused)) struct FTW* ftwbuf);
+
+int
+rmrf(const char* path);
+
+int
+create_pipe_dir(int ref);
+
 /* list of initialized pipes */
 struct init_pipe {
         int ref;
-        char tx_pipe[15];
-        char rx_pipe[15];
+        char tx_pipe[20];
+        char rx_pipe[20];
         struct init_pipe* next;
 };

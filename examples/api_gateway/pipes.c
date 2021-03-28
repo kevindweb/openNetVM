@@ -39,6 +39,7 @@
  ********************************************************************/
 
 #include <errno.h>
+#include <ftw.h>
 #include <getopt.h>
 #include <inttypes.h>
 #include <stdarg.h>
@@ -56,6 +57,46 @@
 // list head for initialized pipes not ready for communication
 struct init_pipe* head = NULL;
 
+int
+init_pipe_dir(void) {
+        // similar to rm -rf
+        rmrf(PIPE_DIR);
+
+        printf("Got here");
+
+        return mkdir(PIPE_DIR, 0700);
+}
+
+int
+unlink_cb(const char* fpath, __attribute__((unused)) const struct stat* sb, __attribute__((unused)) int typeflag,
+          __attribute__((unused)) struct FTW* ftwbuf) {
+        int rv = remove(fpath);
+
+        if (rv)
+                perror(fpath);
+
+        return rv;
+}
+
+int
+rmrf(const char* path) {
+        return nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
+}
+
+int
+create_pipe_dir(int ref) {
+        static char pipe_dir[sizeof(CONT_PIPE_DIR_NAME) + 4];
+        sprintf(pipe_dir, CONT_PIPE_DIR_NAME, ref);
+
+        // create empty directory
+        if (mkdir(pipe_dir, 0700) != 0) {
+                printf("Failed to mkdir %s\n", pipe_dir);
+                return -1;
+        }
+
+        return 0;
+}
+
 /* Create rx and tx pipes in /tmp/rx and /tmp/tx */
 int
 create_pipes(int ref) {
@@ -63,8 +104,10 @@ create_pipes(int ref) {
         static char rx_pipe[sizeof(CONT_RX_PIPE_NAME) + 4];
         sprintf(rx_pipe, CONT_RX_PIPE_NAME, ref);
 
-        // remove any old pipes with same name
-        remove(rx_pipe);
+        if (create_pipe_dir(ref) != 0) {
+                printf("Couldn't create the pipe dir %d\n", ref);
+                return -1;
+        }
 
         // create rx pipe
         if (mkfifo(rx_pipe, 0666) == -1) {
@@ -123,8 +166,14 @@ ready_pipes(void) {
         // open in nonblock write only will fail if pipe isn't open on read end
         while (iterator->next != NULL) {
                 // pipe ready
-                if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) &&
-                    (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
+                if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0)) {
+                        if ((rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
+                                // tx succeeded, but rx did not, make sure to clean up
+                                close(tx_fd);
+                                prev = iterator;
+                                iterator = iterator->next;
+                                continue;
+                        }
                         // add (tx_fd, rx_fd) to the stack
                         warm_pipes = malloc(sizeof(struct pipe_fds));
                         warm_pipes->rx_pipe = rx_fd;
@@ -159,8 +208,14 @@ ready_pipes(void) {
         }
 
         // pipe ready
-        if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) &&
-            (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
+        if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0)) {
+                if ((rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
+                        // tx succeeded, but rx did not, make sure to clean up
+                        close(tx_fd);
+                        return;
+                }
+                // if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) &&
+                //     (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
                 // add (tx_fd, rx_fd) to the stack
                 warm_pipes->rx_pipe = rx_fd;
                 warm_pipes->tx_pipe = tx_fd;

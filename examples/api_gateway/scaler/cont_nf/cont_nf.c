@@ -7,36 +7,6 @@ const int pkt_size = sizeof(struct rte_mbuf*);
 int tx_fd;
 int rx_fd;
 
-/*
- * Create rx and tx pipes
- * Return 0 on success, -1 on failure
- */
-// int
-// create_pipes() {
-//         // remove any old pipes with same name
-//         remove(CONT_RX_PIPE_NAME);
-//         remove(CONT_TX_PIPE_NAME);
-
-//         // create rx pipe
-//         if (mkfifo(CONT_RX_PIPE_NAME, 0666) == -1) {
-//                 perror("mkfifo");
-//                 return -1;
-//         }
-
-//         // create tx pipe
-//         if (mkfifo(CONT_TX_PIPE_NAME, 0666) == -1) {
-//                 perror("mkfifo");
-//                 return -1;
-//         }
-
-//         // init fds to -1
-//         warm_pipes = malloc(sizeof(struct pipe_fds));
-//         warm_pipes->rx_fd = -1;
-//         warm_pipes->tx_fd = -1;
-
-//         return 0;
-// }
-
 int
 open_pipes(void) {
         if ((rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY | O_NONBLOCK)) == -1) {
@@ -52,11 +22,11 @@ open_pipes(void) {
 
 void
 pipe_cleanup(void) {
-        remove(CONT_RX_PIPE_NAME);
-        remove(CONT_TX_PIPE_NAME);
-
         close(rx_fd);
         close(tx_fd);
+
+        remove(CONT_RX_PIPE_NAME);
+        remove(CONT_TX_PIPE_NAME);
 }
 
 struct rte_mbuf*
@@ -101,15 +71,13 @@ receive_packets(void) {
 
 int
 main(void) {
-        /* create pipes */
-        // if (create_pipes() == -1) {
-        //         pipe_cleanup();
-        //         exit(0);
-        // }
-
         /* open pipes */
         printf("Starting to open pipes\n");
-        while (open_pipes() == -1) {
+
+        // pipes should be open when container initializes
+        if (open_pipes() == -1) {
+                printf("Pipes, rx: %s and tx: %s not configured correctly\n", CONT_RX_PIPE_NAME, CONT_TX_PIPE_NAME);
+                exit(1);
         }
 
         printf("Initialization finished\n");
