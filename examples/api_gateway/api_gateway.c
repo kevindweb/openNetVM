@@ -165,8 +165,10 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                 write_packet(data->dest, pkt);
         } else {
                 if (data->num_buffered < 2) {
+                        rte_rwlock_write_lock(&data->lock);
                         data->buffer[data->num_buffered] = pkt;
                         data->num_buffered++;
+                        rte_rwlock_write_unlock(&data->lock);
                 } else {
                         meta->action = ONVM_NF_ACTION_DROP;
                         return 0;

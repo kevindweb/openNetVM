@@ -43,6 +43,8 @@
 #include "onvm_flow_table.h"
 #include "onvm_pkt_common.h"
 
+#include <rte_rwlock.h>
+
 #define NUM_CONTAINERS 4
 #define CONT_RX_PIPE_NAME "/tmp/rx/%d"
 #define CONT_TX_PIPE_NAME "/tmp/tx/%d"
@@ -169,6 +171,7 @@ struct data {
         uint8_t dest;
         struct rte_mbuf * buffer[2];
         uint8_t num_buffered;
+        struct rte_rwlock_t lock;
 };
 
 enum {
