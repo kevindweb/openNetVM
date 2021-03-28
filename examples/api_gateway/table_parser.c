@@ -277,9 +277,12 @@ dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd) {
         }
         rte_rwlock_write_lock(&data->lock);
         // write buffered packets
-        while (data->num_buffered) {
-                write_packet(tx_fd, data->buffer[--data->num_buffered]);
+        int i = 0;
+        while (i < data->num_buffered) {
+                write_packet(tx_fd, data->buffer[i]);
+                i++;
         }
+        data->num_buffered = 0;
         rte_rwlock_write_unlock(&data->lock);
         return 0;
 }
