@@ -50,6 +50,7 @@
 #define FLOW_RING_NAME "IPv4_Flow_%u_%d"
 #define _GATE_2_BUFFER "GATEWAY_2_BUFFER"
 #define _SCALE_2_BUFFER "SCALE_2_BUFFER"
+#define _INIT_CONT_TRACKER "INIT_CONT_TRACKER"
 #define COMMENT_LEAD_CHAR ('#')
 
 // 1024 maximum open file descriptors (stated by linux) / (2 pipes/container)
@@ -83,7 +84,7 @@ rte_atomic16_t num_running_containers;
 
 // buffer pulls from gateway and scaler ring buffers
 
-struct rte_ring *scale_buffer_ring, *gate_buffer_ring;
+struct rte_ring *scale_buffer_ring, *gate_buffer_ring, *container_init_ring;
 struct packet_buf *scaling_buf, *pkts_deq_burst, *pkts_enq_burst;
 
 struct onvm_nf_local_ctx *nf_local_ctx;
@@ -166,6 +167,8 @@ struct onvm_parser_ipv4_5tuple {
  */
 struct data {
         uint8_t dest;
+        struct rte_mbuf * buffer[2];
+        uint8_t num_buffered;
 };
 
 enum {
@@ -190,7 +193,7 @@ enum {
 int
 setup_hash(struct state_info *stats);
 
-uint16_t
+struct data *
 get_ipv4_dst(struct rte_mbuf *pkt);
 
 int
@@ -232,4 +235,4 @@ const char *
 get_flow_queue_name(struct onvm_ft_ipv4_5tuple key);
 
 int32_t
-dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, struct rte_ring *ring, int tx_fd);
+dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd);

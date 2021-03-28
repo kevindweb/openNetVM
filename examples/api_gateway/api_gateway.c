@@ -158,22 +158,23 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                 print_stats(nf_local_ctx);
                 counter = 0;
         }
-        int16_t dst;
+        struct data * data;
 
-        dst = get_ipv4_dst(pkt);
-        if (dst == 0) {
-                // TODO: @bdevierno1 need to set flow to buffer new flow - need locks
-                // new IP flow, buffer packet while we wait for a container
-                if (add_buffer_map(pkt) < 0) {
-                        perror("Failed to buffer packet from gateway\n");
-                }
+        data = get_ipv4_dst(pkt);
+        if (data->dest > 0) {
+                write_packet(data->dest, pkt);
         } else {
-                // use pipe API to send packet to container through its' RX pipe fd
-                write_packet(dst, pkt);
+                if (data->num_buffered < 2) {
+                        data->buffer[data->num_buffered] = pkt;
+                        data->num_buffered++;
+                } else {
+                        meta->action = ONVM_NF_ACTION_DROP;
+                        return 0;
+                }
         }
 
-        meta->destination = dst;
-        stats->statistics[dst]++;
+        meta->destination = data->dest;
+        stats->statistics[data->dest]++;
         meta->action = ONVM_NF_ACTION_TONF;
         return 0;
 }
@@ -271,6 +272,9 @@ init_rings(void) {
         const unsigned ring_size = 64;
 
         // TODO: @bdevierno1 need to add a ring of onvm_ft_ipv4_5tuple here
+        container_init_ring = rte_ring_create(_INIT_CONT_TRACKER, ring_size, rte_socket_id(), flags);
+        if (container_init_ring == NULL)
+                rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
         gate_buffer_ring = rte_ring_create(_GATE_2_BUFFER, ring_size, rte_socket_id(), flags);
         if (gate_buffer_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");

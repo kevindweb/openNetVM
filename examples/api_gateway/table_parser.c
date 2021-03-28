@@ -1,22 +1,24 @@
 #include "api_gateway.h"
 
-uint16_t
+struct data *
 get_ipv4_dst(struct rte_mbuf *pkt) {
         struct data *data = NULL;
         struct onvm_ft_ipv4_5tuple key;
-        uint8_t dst;
 
         int ret = onvm_ft_fill_key(&key, pkt);
 
         if (ret < 0)
-                return -1;
+                return NULL;
 
         // TODO: flow table should return more info about packet (like container id, pipe file descriptors...)
-        int tbl_index = onvm_ft_lookup_key(em_tbl, &key, (char **)&data);
-        if (tbl_index < 0)
-                return -1;
-        dst = data->dest;
-        return dst;
+        int tbl_index = onvm_ft_lookup_key((struct onvm_ft *)em_tbl, &key, (char **)&data);
+        if (tbl_index < 0) {
+                onvm_ft_add_key((struct onvm_ft *)em_tbl, &key, (char **)&data);
+                data->dest = 0;
+                data->num_buffered = 0;
+                rte_ring_enqueue(container_init_ring, (void *)&key);
+        }
+        return data;
 }
 
 int
@@ -264,18 +266,17 @@ add_buffer_map(struct rte_mbuf *pkt) {
 
 /* Dequeue entire flow ring and free flow from buffer map */
 int32_t
-dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, struct rte_ring *ring, int tx_fd) {
-        struct rte_mbuf *pkt;
-        int ret;
-        while ((ret = rte_ring_dequeue(ring, (void **)(&pkt))) > 0) {
-                // write packets coming from ring into the container
-                write_packet(tx_fd, pkt);
-        }
+dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd) {
+        struct data *data;
 
-        if (ret < 0) {
+        int tbl_index = onvm_ft_lookup_key((struct onvm_ft *)em_tbl, key, (char **)&data);
+        if (tbl_index < 0) {
+                RTE_LOG(INFO, APP, "Lookup failed in free buffer map.\n"); 
                 return -1;
         }
-
-        // remove flow from buffer map
-        return onvm_ft_remove_key(buffer_map, key);
+        // write buffered packets
+        while (data->num_buffered) {
+                write_packet(tx_fd, data->buffer[--data->num_buffered]);
+        }
+        return 0;
 }

@@ -135,7 +135,8 @@ init_stack(void) {
 int
 scale_docker(int scale) {
         char docker_call[100];
-        for (int i = total_scaled + 1; i <= scale + total_scaled; i++) {
+        int i;
+        for (i = total_scaled + 1; i <= scale + total_scaled; i++) {
                 // create the pipes for a specific container ID
                 printf("scale %d\n", i);
                 if (create_pipes(i) == -1) {
@@ -172,7 +173,7 @@ void
 kill_docker(void) {
         char docker_call[100];
         sprintf(docker_call, "docker stack rm %s", SERVICE);
-        system(docker_call);
+        if (system(docker_call) > 0) {};
 }
 
 void
@@ -183,9 +184,7 @@ cleanup(void) {
 
 int
 move_buffer_to_container(void) {
-        uint32_t i = 0;
         struct pipe_fds *pipe;
-        struct rte_ring *ring;
         struct onvm_ft_ipv4_5tuple *flow;
 
         if (rte_atomic16_read(&num_running_containers) >= MAX_CONTAINERS) {
@@ -194,15 +193,8 @@ move_buffer_to_container(void) {
                 return -1;
         }
 
-        /*
-         * TODO: @bdevierno1 dequeue new ring to find next buffered onvm_ft_ipv4_5tuple
-         * instead of onvm_ft_iterate
-         * scale_buffer_ring is still required because we won't always have new flows
-         * when containers are ready
-         */
-
         // loop while there are buffered flow rings, and warm containers to service them
-        while (onvm_ft_iterate(buffer_map, (const void **)(&flow), (void **)(&ring), &i) >= 0 &&
+        while (rte_ring_dequeue(container_init_ring, (void **)(&flow)) == 0 &&
                rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == 0) {
                 /*
                  * New containers/pipes are ready and we have an unassigned IP flow
@@ -214,17 +206,10 @@ move_buffer_to_container(void) {
 
                 // TODO: @bdevierno1 need to modify this dequeue function to push buffered packets to tx_pipe
                 // push all buffered packets to the pipe
-                if (dequeue_and_free_buffer_map(flow, ring, pipe->tx_pipe) < 0) {
+                if (dequeue_and_free_buffer_map(flow, pipe->tx_pipe) < 0) {
                         perror("Failed to dequeue packet flows from ring");
                         continue;
                 }
-
-                struct data *data = NULL;
-                if (onvm_ft_add_key(em_tbl, flow, (char **)&data) < 0) {
-                        perror("Couldn't add IP flow to flow table");
-                        continue;
-                }
-
                 // TODO: @bdevierno1 need to keep this to give polling thread more pipes
                 add_fd_epoll(pipe->rx_pipe);
         }
