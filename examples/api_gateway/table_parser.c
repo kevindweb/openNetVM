@@ -267,7 +267,7 @@ add_buffer_map(struct rte_mbuf *pkt) {
 
 /* Dequeue entire flow ring and free flow from buffer map */
 int32_t
-dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd) {
+dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_fd) {
         struct data *data;
 
         int tbl_index = onvm_ft_lookup_key((struct onvm_ft *)em_tbl, key, (char **)&data);
@@ -284,5 +284,7 @@ dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd) {
         }
         data->num_buffered = 0;
         rte_rwlock_write_unlock(&data->lock);
+
+        data->poll_fd = rx_fd;
         return 0;
 }

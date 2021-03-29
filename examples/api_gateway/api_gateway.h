@@ -169,6 +169,7 @@ struct onvm_parser_ipv4_5tuple {
  */
 struct data {
         uint8_t dest;
+        uint8_t poll_fd;
         struct rte_mbuf * buffer[2];
         uint8_t num_buffered;
         rte_rwlock_t lock;
@@ -238,4 +239,4 @@ const char *
 get_flow_queue_name(struct onvm_ft_ipv4_5tuple key);
 
 int32_t
-dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd);
+dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_fd);

@@ -204,9 +204,8 @@ move_buffer_to_container(void) {
                  * Add rx pipe to epoll for polling
                  */
 
-                // TODO: @bdevierno1 need to modify this dequeue function to push buffered packets to tx_pipe
-                // push all buffered packets to the pipe
-                if (dequeue_and_free_buffer_map(flow, pipe->tx_pipe) < 0) {
+                int rx_fd = 0; // TODO: get the corresponding rx_fd number.
+                if (dequeue_and_free_buffer_map(flow, pipe->tx_pipe, rx_fd) < 0) {
                         perror("Failed to dequeue packet flows from ring");
                         continue;
                 }
