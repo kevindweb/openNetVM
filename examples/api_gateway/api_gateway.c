@@ -273,7 +273,6 @@ init_rings(void) {
         const unsigned flags = 0;
         const unsigned ring_size = 64;
 
-        // TODO: @bdevierno1 need to add a ring of onvm_ft_ipv4_5tuple here
         container_init_ring = rte_ring_create(_INIT_CONT_TRACKER, ring_size, rte_socket_id(), flags);
         if (container_init_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
