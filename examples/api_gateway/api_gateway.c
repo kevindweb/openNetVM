@@ -276,9 +276,6 @@ init_rings(void) {
         container_init_ring = rte_ring_create(_INIT_CONT_TRACKER, ring_size, rte_socket_id(), flags);
         if (container_init_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
-        gate_buffer_ring = rte_ring_create(_GATE_2_BUFFER, ring_size, rte_socket_id(), flags);
-        if (gate_buffer_ring == NULL)
-                rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
         scale_buffer_ring = rte_ring_create(_SCALE_2_BUFFER, NF_QUEUE_RINGSIZE, rte_socket_id(), RING_F_SP_ENQ);
         if (scale_buffer_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting buffer ring for scaling.\n");
