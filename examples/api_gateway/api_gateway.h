@@ -50,7 +50,6 @@
 #define CONT_TX_PIPE_NAME "/tmp/tx/%d"
 #define PKTMBUF_POOL_NAME "MProc_pktmbuf_pool"
 #define FLOW_RING_NAME "IPv4_Flow_%u_%d"
-#define _GATE_2_BUFFER "GATEWAY_2_BUFFER"
 #define _SCALE_2_BUFFER "SCALE_2_BUFFER"
 #define _INIT_CONT_TRACKER "INIT_CONT_TRACKER"
 #define COMMENT_LEAD_CHAR ('#')
