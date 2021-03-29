@@ -85,7 +85,7 @@ rte_atomic16_t num_running_containers;
 
 // buffer pulls from gateway and scaler ring buffers
 
-struct rte_ring *scale_buffer_ring, *gate_buffer_ring, *container_init_ring;
+struct rte_ring *scale_buffer_ring, *container_init_ring;
 struct packet_buf *scaling_buf, *pkts_deq_burst, *pkts_enq_burst;
 
 struct onvm_nf_local_ctx *nf_local_ctx;
