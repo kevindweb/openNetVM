@@ -208,7 +208,6 @@ move_buffer_to_container(void) {
                         perror("Failed to dequeue packet flows from ring");
                         continue;
                 }
-                // TODO: @bdevierno1 need to keep this to give polling thread more pipes
                 add_fd_epoll(pipe->rx_pipe);
         }
 
