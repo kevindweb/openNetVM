@@ -205,7 +205,7 @@ move_buffer_to_container(void) {
                  */
 
                 int rx_fd = 0; // TODO: get the corresponding rx_fd number.
-                if (dequeue_and_free_buffer_map(flow, pipe->tx_pipe, rx_fd) < 0) {
+                if (dequeue_and_free_buffer_map(flow, pipe->tx_pipe, pipe->rx_pipe) < 0) {
                         perror("Failed to dequeue packet flows from ring");
                         continue;
                 }
