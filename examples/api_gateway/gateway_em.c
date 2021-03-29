@@ -29,16 +29,16 @@ int epoll_fd = -1;
 void
 enqueue_mbuf(struct rte_mbuf *pkt) {
         // find which port to send packet to
-        uint16_t dst;
-        dst = get_ipv4_dst(pkt);
-        if (dst == 0) {
+        struct data * data;
+        data = get_ipv4_dst(pkt);
+        if (data->dest == 0) {
                 // TODO: figure out if this is a malicious scenario
                 perror("Red flag: container sent packet we couldn't handle\n");
                 return;
         }
 
         // enqueue pkt directly (instead of normal NF tx ring)
-        onvm_pkt_enqueue_port(poll_tx_mgr, dst, pkt);
+        onvm_pkt_enqueue_port(poll_tx_mgr, data->dest, pkt);
 }
 
 /*
