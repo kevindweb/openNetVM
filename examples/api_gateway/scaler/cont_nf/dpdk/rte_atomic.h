@@ -183,7 +183,7 @@ typedef struct {
 #define RTE_ATOMIC16_INIT(val) \
         { (val) }
 
-#endif /* _RTE_ATOMIC_H_ */
+#endif  // _RTE_ATOMIC_H_
 
 // onvm - default byte order
 #define RTE_BIG_ENDIAN 1

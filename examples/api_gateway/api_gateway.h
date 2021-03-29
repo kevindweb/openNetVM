@@ -39,11 +39,11 @@
  ********************************************************************/
 
 #include <rte_lpm.h>
+#include <rte_rwlock.h>
+
 #include "onvm_common.h"
 #include "onvm_flow_table.h"
 #include "onvm_pkt_common.h"
-
-#include <rte_rwlock.h>
 
 #define NUM_CONTAINERS 4
 #define PIPE_DIR "/tmp/pipe"
@@ -171,7 +171,7 @@ struct onvm_parser_ipv4_5tuple {
 struct data {
         uint8_t dest;
         uint8_t poll_fd;
-        struct rte_mbuf * buffer[2];
+        struct rte_mbuf *buffer[2];
         uint8_t num_buffered;
         rte_rwlock_t lock;
 };

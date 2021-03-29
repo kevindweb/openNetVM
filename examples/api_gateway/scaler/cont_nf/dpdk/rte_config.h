@@ -609,4 +609,4 @@
 #define RTE_ARCH_64 1
 #undef RTE_TOOLCHAIN_GCC
 #define RTE_TOOLCHAIN_GCC 1
-#endif /* __RTE_CONFIG_H */
+#endif  // _RTE_CONFIG_H_

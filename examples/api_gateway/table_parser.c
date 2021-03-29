@@ -272,7 +272,7 @@ dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_f
 
         int tbl_index = onvm_ft_lookup_key((struct onvm_ft *)em_tbl, key, (char **)&data);
         if (tbl_index < 0) {
-                RTE_LOG(INFO, APP, "Lookup failed in free buffer map.\n"); 
+                RTE_LOG(INFO, APP, "Lookup failed in free buffer map.\n");
                 return -1;
         }
         rte_rwlock_write_lock(&data->lock);

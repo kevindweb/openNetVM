@@ -173,7 +173,9 @@ void
 kill_docker(void) {
         char docker_call[100];
         sprintf(docker_call, "docker stack rm %s", SERVICE);
-        if (system(docker_call) > 0) {};
+        if (system(docker_call) < 0) {
+                printf("Failed to stop docker stack\n");
+        }
 }
 
 void

@@ -29,7 +29,7 @@ int epoll_fd = -1;
 void
 enqueue_mbuf(struct rte_mbuf *pkt) {
         // find which port to send packet to
-        struct data * data;
+        struct data *data;
         data = get_ipv4_dst(pkt);
         if (data->dest == 0) {
                 // TODO: figure out if this is a malicious scenario

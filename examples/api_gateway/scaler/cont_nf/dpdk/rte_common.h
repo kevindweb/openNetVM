@@ -807,4 +807,4 @@ rte_exit(int exit_code, const char *format, ...) __rte_format_printf(2, 3);
 }
 #endif
 
-#endif
+#endif  // _RTE_COMMON_H_
