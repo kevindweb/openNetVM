@@ -3,7 +3,7 @@ services:
   # Define the network function to be scaled
   skeleton:
     # Need to run Dockerfile to build this image
-    image: "cont_nf_test:latest"
+    image: "cont_nf:latest"
     volumes:
       # .Task.Slot is an auto-incrementing reference to the current container
       - /tmp/pipe/{{.Task.Slot}}:/pipe

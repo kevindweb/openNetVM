@@ -135,8 +135,8 @@ create_pipes(int ref) {
                 return -1;
         }
         new_pipe->ref = ref;
-        strncpy(new_pipe->tx_pipe, tx_pipe, strlen(tx_pipe));
-        strncpy(new_pipe->rx_pipe, rx_pipe, strlen(rx_pipe));
+        strncpy(new_pipe->tx_pipe, tx_pipe, strlen(new_pipe->tx_pipe));
+        strncpy(new_pipe->rx_pipe, rx_pipe, strlen(new_pipe->rx_pipe));
         new_pipe->next = NULL;
 
         if (head == NULL) {
@@ -161,7 +161,7 @@ ready_pipes(void) {
         struct init_pipe* tmp;
         struct init_pipe* iterator = head;
         struct init_pipe* prev = iterator;
-        struct pipe_fds* warm_pipes  = malloc(sizeof(struct pipe_fds));
+        struct pipe_fds* warm_pipes = malloc(sizeof(struct pipe_fds));
 
         // open in nonblock write only will fail if pipe isn't open on read end
         while (iterator->next != NULL) {
