@@ -55,6 +55,12 @@ write_packet(struct rte_mbuf* packet) {
 void
 receive_packets(void) {
         /* put in loop or however we want to set this up */
+        /*
+         * do this in loop:
+         * read packet from rx_fd from host
+         * convert rte_mbuf into LWIP pbuf
+         * call net_if.input to push packet to TCP stack
+         */
         struct rte_mbuf* packet = read_packet();
         if (packet == NULL) {
                 perror("Couldn't read packet data\n");
@@ -68,6 +74,37 @@ receive_packets(void) {
                 perror("Couldn't write data to TX pipe");
         }
 }
+/*
+void
+receive_packets(void) {
+        // initialize tcp stack
+        if (init_stack() < 0) {
+                printf("Couldn't initialize lwip stack");
+                return;
+        }
+        // do this in loop:
+        // read packet from rx_fd from host
+        // convert rte_mbuf into LWIP pbuf
+        // call net_if.input to push packet to TCP stack
+
+        struct rte_mbuf* packet;
+        printf("Running main loop to check for packets\n");
+        while (1) {
+                packet = read_packet();
+                if (packet == NULL) {
+                        printf("Could not read packet data\n");
+                        continue;
+                }
+                printf("Received packet from port %d\n", packet->port);
+
+                // convert mbuf to lwip pbuf and input into the TCP stack
+        }
+
+        if (write_packet(packet) == -1) {
+                perror("Couldn't write data to TX pipe");
+        }
+}
+*/
 
 int
 main(void) {
@@ -84,6 +121,9 @@ main(void) {
 
         /* receive packets */
         receive_packets();
+
+        // most likely an error, as most containers run the lifespan of a client
+        printf("Finished executing\n");
 
         pipe_cleanup();
         return 0;

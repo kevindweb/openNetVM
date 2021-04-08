@@ -9,3 +9,6 @@
         branch = master
         commit = 807b4d2cfcc8ded46ece85353cefe5d655674de3
 
+[submodule "examples/api_gateway/scaler/cont_nf/examples/api_gateway/scaler/cont_nf/lwip-linux"]
+	path = examples/api_gateway/scaler/cont_nf/examples/api_gateway/scaler/cont_nf/lwip-linux
+	url = https://github.com/haohd/lwip-linux.git
