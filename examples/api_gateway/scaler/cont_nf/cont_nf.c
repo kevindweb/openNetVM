@@ -4,18 +4,21 @@
 const int pkt_size = sizeof(struct rte_mbuf*);
 
 /* file descriptors for TX and RX pipes */
-int tx_fd;
-int rx_fd;
+int tx_fd = 0;
+int rx_fd = 0;
 
 int
 open_pipes(void) {
-        if ((rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY | O_NONBLOCK)) == -1) {
+        if (rx_fd < 1 && (rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY)) == -1) {
+                perror("open rx fail");
                 return -1;
         }
-
-        if ((tx_fd = open(CONT_TX_PIPE_NAME, O_WRONLY | O_NONBLOCK)) == -1) {
+        printf("Opened rx pipe\n");
+        if (tx_fd < 1 && (tx_fd = open(CONT_TX_PIPE_NAME, O_WRONLY | O_NONBLOCK)) == -1) {
+                perror("open tx fail");
                 return -1;
         }
+        printf("Opened tx pipe\n");
 
         return 0;
 }
@@ -61,17 +64,21 @@ receive_packets(void) {
          * convert rte_mbuf into LWIP pbuf
          * call net_if.input to push packet to TCP stack
          */
-        struct rte_mbuf* packet = read_packet();
-        if (packet == NULL) {
-                perror("Couldn't read packet data\n");
-        }
-        printf("Received packet from port %d\n", packet->port);
+        while (1) {
+                struct rte_mbuf* packet = read_packet();
+                if (packet == NULL) {
+                        perror("Couldn't read packet data");
+                        return;
+                }
+                printf("Received packet from port %d\n", packet->port);
 
-        // dummy to let host know we modified packet data
-        packet->port = 10;
+                // dummy to let host know we modified packet data
+                packet->port = 10;
 
-        if (write_packet(packet) == -1) {
-                perror("Couldn't write data to TX pipe");
+                if (write_packet(packet) == -1) {
+                        perror("Couldn't write data to TX pipe");
+                        return;
+                }
         }
 }
 /*
@@ -110,11 +117,13 @@ int
 main(void) {
         /* open pipes */
         printf("Starting to open pipes\n");
+        int count = 0;
 
         // pipes should be open when container initializes
-        if (open_pipes() == -1) {
+        while (open_pipes() == -1 && count++ < RETRY_OPEN_PIPES) {
                 printf("Pipes, rx: %s and tx: %s not configured correctly\n", CONT_RX_PIPE_NAME, CONT_TX_PIPE_NAME);
-                exit(1);
+                sleep(1);
+                // exit(1);
         }
 
         printf("Initialization finished\n");
@@ -125,6 +134,6 @@ main(void) {
         // most likely an error, as most containers run the lifespan of a client
         printf("Finished executing\n");
 
-        pipe_cleanup();
+        // pipe_cleanup();
         return 0;
 }

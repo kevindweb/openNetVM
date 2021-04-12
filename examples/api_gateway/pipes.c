@@ -62,8 +62,6 @@ init_pipe_dir(void) {
         // similar to rm -rf
         rmrf(PIPE_DIR);
 
-        printf("Got here");
-
         return mkdir(PIPE_DIR, 0700);
 }
 
@@ -119,9 +117,6 @@ create_pipes(int ref) {
         static char tx_pipe[sizeof(CONT_TX_PIPE_NAME) + 4];
         sprintf(tx_pipe, CONT_TX_PIPE_NAME, ref);
 
-        // remove any old pipes with same name
-        remove(tx_pipe);
-
         // create tx pipe
         if (mkfifo(tx_pipe, 0666) == -1) {
                 perror("mkfifo");
@@ -135,6 +130,16 @@ create_pipes(int ref) {
                 return -1;
         }
         new_pipe->ref = ref;
+
+        // open host-side read end so container can open WRONLY tx pipe
+        int rx_fd;
+        if ((rx_fd = open(rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
+                perror("open rx_pipe");
+                return -1;
+        }
+
+        new_pipe->rx_fd = rx_fd;
+
         strncpy(new_pipe->tx_pipe, tx_pipe, strlen(new_pipe->tx_pipe));
         strncpy(new_pipe->rx_pipe, rx_pipe, strlen(new_pipe->rx_pipe));
         new_pipe->next = NULL;
@@ -157,7 +162,7 @@ create_pipes(int ref) {
 /* Add ready containers to warm containers stack */
 void
 ready_pipes(void) {
-        int tx_fd, rx_fd;
+        int tx_fd;
         struct init_pipe* tmp;
         struct init_pipe* iterator = head;
         struct init_pipe* prev = iterator;
@@ -167,16 +172,16 @@ ready_pipes(void) {
         while (iterator->next != NULL) {
                 // pipe ready
                 if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0)) {
-                        if ((rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
-                                // tx succeeded, but rx did not, make sure to clean up
-                                close(tx_fd);
-                                prev = iterator;
-                                iterator = iterator->next;
-                                continue;
-                        }
+                        // if ((rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
+                        //         // tx succeeded, but rx did not, make sure to clean up
+                        //         close(tx_fd);
+                        //         prev = iterator;
+                        //         iterator = iterator->next;
+                        //         continue;
+                        // }
                         // add (tx_fd, rx_fd) to the stack
-                        // warm_pipes = malloc(sizeof(struct pipe_fds));s
-                        warm_pipes->rx_pipe = rx_fd;
+                        warm_pipes = malloc(sizeof(struct pipe_fds));
+                        warm_pipes->rx_pipe = iterator->rx_fd;
                         warm_pipes->tx_pipe = tx_fd;
 
                         if (rte_ring_enqueue(scale_buffer_ring, (void*)warm_pipes) < 0) {
@@ -209,15 +214,15 @@ ready_pipes(void) {
 
         // pipe ready
         if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0)) {
-                if ((rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
-                        // tx succeeded, but rx did not, make sure to clean up
-                        close(tx_fd);
-                        return;
-                }
+                // if ((rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
+                //         // tx succeeded, but rx did not, make sure to clean up
+                //         close(tx_fd);
+                //         return;
+                // }
                 // if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) &&
                 //     (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
                 // add (tx_fd, rx_fd) to the stack
-                warm_pipes->rx_pipe = rx_fd;
+                warm_pipes->rx_pipe = iterator->rx_fd;
                 warm_pipes->tx_pipe = tx_fd;
 
                 if (rte_ring_enqueue(scale_buffer_ring, (void*)warm_pipes) < 0) {
@@ -245,6 +250,7 @@ read_packet(int rx_fd) {
         size_t pkt_size = sizeof(struct rte_mbuf);
         struct rte_mbuf* packet = malloc(pkt_size);
         if (read(rx_fd, packet, pkt_size) == -1) {
+                perror("Read packet failed");
                 return NULL;
         }
 

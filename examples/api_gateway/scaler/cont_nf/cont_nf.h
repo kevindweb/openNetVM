@@ -3,8 +3,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define CONT_RX_PIPE_NAME "/pipe/rx"
-#define CONT_TX_PIPE_NAME "/pipe/tx"
+// cont_nf reads through the host's write (tx) pipe
+#define CONT_RX_PIPE_NAME "/pipe/tx"
+// and writes (tx) with the pipe the host reads (rx) from
+#define CONT_TX_PIPE_NAME "/pipe/rx"
+
+#define RETRY_OPEN_PIPES 20
 
 // TODO: not sure we still need this if pies are created on the host side
 int

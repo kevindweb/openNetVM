@@ -109,9 +109,9 @@ init_stack(void) {
          */
 
         // set up first named pipe
-        if (create_pipes(++total_scaled) == -1)
-                // failed pipe creation
-                return -1;
+        // if (create_pipes(++total_scaled) == -1)
+        //         // failed pipe creation
+        //         return -1;
 
         // docker command to start container
         const char *command = "docker stack deploy -c ./scaler/docker-compose.yml skeleton";
