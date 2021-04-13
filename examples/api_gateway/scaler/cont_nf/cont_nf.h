@@ -3,6 +3,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "dpdk/rte_mbuf_core.h"
+
 // cont_nf reads through the host's write (tx) pipe
 #define CONT_RX_PIPE_NAME "/pipe/tx"
 // and writes (tx) with the pipe the host reads (rx) from
@@ -26,8 +28,8 @@ void
 pipe_cleanup(void);
 
 /* Helper to fill packet from RX pipe */
-struct rte_mbuf*
-read_packet(void);
+int
+read_packet(struct rte_mbuf**);
 
 /* Helper to send packet out through network */
 int

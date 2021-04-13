@@ -103,7 +103,6 @@ create_pipe_dir(int ref);
 struct init_pipe {
         int ref;
         char tx_pipe[20];
-        char rx_pipe[20];
         int rx_fd;
         struct init_pipe* next;
 };

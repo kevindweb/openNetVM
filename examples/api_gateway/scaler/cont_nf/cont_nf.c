@@ -9,7 +9,7 @@ int rx_fd = 0;
 
 int
 open_pipes(void) {
-        if (rx_fd < 1 && (rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY)) == -1) {
+        if (rx_fd < 1 && (rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY | O_NONBLOCK)) == -1) {
                 perror("open rx fail");
                 return -1;
         }
@@ -32,15 +32,12 @@ pipe_cleanup(void) {
         remove(CONT_TX_PIPE_NAME);
 }
 
-struct rte_mbuf*
-read_packet(void) {
+int
+read_packet(struct rte_mbuf** packet) {
         size_t pkt_size = sizeof(struct rte_mbuf);
-        struct rte_mbuf* packet = malloc(pkt_size);
-        if (read(rx_fd, packet, pkt_size) == -1) {
-                return NULL;
-        }
+        *packet = malloc(pkt_size);
 
-        return packet;
+        return read(rx_fd, *packet, pkt_size);
 }
 
 int
@@ -65,10 +62,13 @@ receive_packets(void) {
          * call net_if.input to push packet to TCP stack
          */
         while (1) {
-                struct rte_mbuf* packet = read_packet();
-                if (packet == NULL) {
-                        perror("Couldn't read packet data");
-                        return;
+                struct rte_mbuf* packet;
+                int ret = read_packet(&packet);
+                if (ret < 1) {
+                        // no data yet
+                        printf("No data yet\n");
+                        sleep(1);
+                        continue;
                 }
                 printf("Received packet from port %d\n", packet->port);
 

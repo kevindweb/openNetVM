@@ -30,6 +30,10 @@ void
 enqueue_mbuf(struct rte_mbuf *pkt) {
         // find which port to send packet to
         struct data *data;
+        printf("Got packet with port %d\n", pkt->port);
+        if (true) {
+                return;
+        }
         data = get_ipv4_dst(pkt);
         if (data->dest == 0) {
                 // TODO: figure out if this is a malicious scenario
@@ -74,6 +78,8 @@ polling(void) {
         for (; worker_keep_running;) {
                 // blocking wait on epoll for the file descriptors
                 event_count = epoll_wait(epoll_fd, events, rte_atomic16_read(&num_running_containers), POLLING_TIMEOUT);
+                if (event_count > -1)
+                        printf("Got here FOR PIPE %d (num pipes ready)\n", event_count);
                 for (i = 0; i < event_count; i++) {
                         // TODO: implement fairness for polling pipes
                         // read the container pipe buffer until its empty

@@ -129,7 +129,6 @@ create_pipes(int ref) {
                 printf("Couldn't malloc new pipe\n");
                 return -1;
         }
-        new_pipe->ref = ref;
 
         // open host-side read end so container can open WRONLY tx pipe
         int rx_fd;
@@ -138,10 +137,9 @@ create_pipes(int ref) {
                 return -1;
         }
 
+        new_pipe->ref = ref;
         new_pipe->rx_fd = rx_fd;
-
-        strncpy(new_pipe->tx_pipe, tx_pipe, strlen(new_pipe->tx_pipe));
-        strncpy(new_pipe->rx_pipe, rx_pipe, strlen(new_pipe->rx_pipe));
+        memcpy(new_pipe->tx_pipe, tx_pipe, strlen(tx_pipe));
         new_pipe->next = NULL;
 
         if (head == NULL) {
@@ -172,13 +170,6 @@ ready_pipes(void) {
         while (iterator->next != NULL) {
                 // pipe ready
                 if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0)) {
-                        // if ((rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
-                        //         // tx succeeded, but rx did not, make sure to clean up
-                        //         close(tx_fd);
-                        //         prev = iterator;
-                        //         iterator = iterator->next;
-                        //         continue;
-                        // }
                         // add (tx_fd, rx_fd) to the stack
                         warm_pipes = malloc(sizeof(struct pipe_fds));
                         warm_pipes->rx_pipe = iterator->rx_fd;
@@ -214,13 +205,6 @@ ready_pipes(void) {
 
         // pipe ready
         if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0)) {
-                // if ((rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) < 0) {
-                //         // tx succeeded, but rx did not, make sure to clean up
-                //         close(tx_fd);
-                //         return;
-                // }
-                // if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0) &&
-                //     (rx_fd = open(iterator->rx_pipe, O_RDONLY | O_NONBLOCK)) >= 0) {
                 // add (tx_fd, rx_fd) to the stack
                 warm_pipes->rx_pipe = iterator->rx_fd;
                 warm_pipes->tx_pipe = tx_fd;

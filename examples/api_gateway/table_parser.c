@@ -286,5 +286,7 @@ dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_f
         rte_rwlock_write_unlock(&data->lock);
 
         data->poll_fd = rx_fd;
+        // send packets here
+        data->dest = tx_fd;
         return 0;
 }

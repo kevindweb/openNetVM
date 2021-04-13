@@ -196,8 +196,9 @@ move_buffer_to_container(void) {
         }
 
         // loop while there are buffered flow rings, and warm containers to service them
-        while (rte_ring_dequeue(container_init_ring, (void **)(&flow)) == 0 &&
-               rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == 0) {
+        while (rte_ring_count(container_init_ring) > 0 && rte_ring_count(scale_buffer_ring) > 0) {
+                rte_ring_dequeue(container_init_ring, (void **)(&flow));
+                rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe));
                 /*
                  * New containers/pipes are ready and we have an unassigned IP flow
                  * Get the first available buffered flow (maybe random for fairness)
@@ -263,6 +264,8 @@ scaler(void) {
                         printf("Failure: We shouldn't have a negative amount of pipes.");
                         break;
                 }
+
+                move_buffer_to_container();
         }
 
         printf("Scaler thread exiting\n");

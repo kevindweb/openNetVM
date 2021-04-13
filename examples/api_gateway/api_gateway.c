@@ -158,10 +158,13 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                 print_stats(nf_local_ctx);
                 counter = 0;
         }
-        struct data * data;
+        struct data *data;
 
         data = get_ipv4_dst(pkt);
-        if (data->dest > 0) {
+        if (!data) {
+                meta->action = ONVM_NF_ACTION_DROP;
+                return 0;
+        } else if (data->dest > 0) {
                 write_packet(data->dest, pkt);
         } else {
                 if (data->num_buffered < 2) {

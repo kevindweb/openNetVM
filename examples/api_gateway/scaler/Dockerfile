@@ -12,8 +12,8 @@ RUN DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
-        build-essential \
-        gcc
+    build-essential \
+    gcc
 
 # compile application
 RUN gcc -o cont_nf cont_nf.c -static
