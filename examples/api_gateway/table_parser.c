@@ -17,6 +17,7 @@ get_ipv4_dst(struct rte_mbuf *pkt) {
                 data->dest = 0;
                 data->num_buffered = 0;
                 rte_rwlock_init(&data->lock);
+                printf("Src %d:%d Dst %d:%d\n", key.src_addr, key.src_port, key.dst_addr, key.dst_port);
                 rte_ring_enqueue(container_init_ring, (void *)&key);
         }
         return data;
@@ -270,6 +271,8 @@ int32_t
 dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_fd) {
         struct data *data;
 
+        printf("GOT KEY HERE\n");
+        printf("Src %d:%d Dst %d:%d\n", key->src_addr, key->src_port, key->dst_addr, key->dst_port);
         int tbl_index = onvm_ft_lookup_key((struct onvm_ft *)em_tbl, key, (char **)&data);
         if (tbl_index < 0) {
                 RTE_LOG(INFO, APP, "Lookup failed in free buffer map.\n");
@@ -278,6 +281,7 @@ dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_f
         rte_rwlock_write_lock(&data->lock);
         // write buffered packets
         int i = 0;
+
         while (i < data->num_buffered) {
                 write_packet(tx_fd, data->buffer[i]);
                 i++;

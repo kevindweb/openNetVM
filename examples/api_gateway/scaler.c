@@ -197,8 +197,17 @@ move_buffer_to_container(void) {
 
         // loop while there are buffered flow rings, and warm containers to service them
         while (rte_ring_count(container_init_ring) > 0 && rte_ring_count(scale_buffer_ring) > 0) {
-                rte_ring_dequeue(container_init_ring, (void **)(&flow));
-                rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe));
+                printf("Have a container and pipe ready to go!\n");
+                if (rte_ring_dequeue(container_init_ring, (void **)(&flow)) == -1) {
+                        perror("Couldn't dequeue container_init_ring");
+                        continue;
+                }
+
+                if (rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == -1) {
+                        perror("Couldn't dequeue container_init_ring");
+                        continue;
+                }
+
                 /*
                  * New containers/pipes are ready and we have an unassigned IP flow
                  * Get the first available buffered flow (maybe random for fairness)
@@ -207,8 +216,9 @@ move_buffer_to_container(void) {
                  * Add rx pipe to epoll for polling
                  */
 
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
                 if (dequeue_and_free_buffer_map(flow, pipe->tx_pipe, pipe->rx_pipe) < 0) {
-                        perror("Failed to dequeue packet flows from ring");
+                        printf("Failed to dequeue packet flows from ring");
                         continue;
                 }
                 add_fd_epoll(pipe->rx_pipe);
@@ -235,10 +245,12 @@ scaler(void) {
 
         int num_to_scale;
 
+        int initialized = 0;
         for (; worker_keep_running;) {
                 num_to_scale = WARM_CONTAINERS_REQUIRED - (rte_ring_count(scale_buffer_ring) + created_not_ready);
                 printf("Num to scale: %d not ready: %d\n", num_to_scale, created_not_ready);
-                if (num_to_scale > 0) {
+                if (num_to_scale > 0 && !initialized) {
+                        initialized = 1;
                         /*
                          * The number of initialized + "not ready" containers represents
                          * the current amount of "warm" containers

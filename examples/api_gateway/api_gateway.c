@@ -121,7 +121,6 @@ print_stats(__attribute__((unused)) struct onvm_nf_local_ctx *nf_local_ctx) {
         struct state_info *stats = (struct state_info *)nf->data;
 
         /* Clear screen and move to top left */
-        /* Clear screen and move to top left */
         printf("%s%s", clr, topLeft);
 
         printf("\nStatistics ====================================");
@@ -165,8 +164,10 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                 meta->action = ONVM_NF_ACTION_DROP;
                 return 0;
         } else if (data->dest > 0) {
+                printf("GOT packet here\n");
                 write_packet(data->dest, pkt);
         } else {
+                printf("NEW PACKET\n");
                 if (data->num_buffered < 2) {
                         rte_rwlock_write_lock(&data->lock);
                         data->buffer[data->num_buffered] = pkt;
@@ -278,7 +279,7 @@ sig_handler(int sig) {
 void
 init_rings(void) {
         const unsigned flags = 0;
-        const unsigned ring_size = 64;
+        const unsigned ring_size = 512;
 
         container_init_ring = rte_ring_create(_INIT_CONT_TRACKER, ring_size, rte_socket_id(), flags);
         if (container_init_ring == NULL)
