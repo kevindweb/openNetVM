@@ -229,25 +229,14 @@ ready_pipes(void) {
         }
 }
 
-struct rte_mbuf*
-read_packet(int rx_fd) {
-        size_t pkt_size = sizeof(struct rte_mbuf);
-        struct rte_mbuf* packet = malloc(pkt_size);
-        if (read(rx_fd, packet, pkt_size) == -1) {
-                perror("Read packet failed");
-                return NULL;
-        }
-
-        return packet;
+int
+read_packet(int rx_fd, struct rte_mbuf* packet) {
+        return read(rx_fd, packet, sizeof(struct rte_mbuf));
 }
 
 int
 write_packet(int tx_fd, struct rte_mbuf* packet) {
-        if (write(tx_fd, packet, sizeof(struct rte_mbuf*)) == -1) {
-                return -1;
-        }
-
-        return 0;
+        return write(tx_fd, packet, sizeof(struct rte_mbuf));
 }
 
 void

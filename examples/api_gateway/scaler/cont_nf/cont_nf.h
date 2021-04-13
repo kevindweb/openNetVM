@@ -29,7 +29,7 @@ pipe_cleanup(void);
 
 /* Helper to fill packet from RX pipe */
 int
-read_packet(struct rte_mbuf**);
+read_packet(struct rte_mbuf*);
 
 /* Helper to send packet out through network */
 int

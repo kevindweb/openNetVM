@@ -47,7 +47,7 @@
 #define SERVICE "skeleton"
 
 // how many warm containers to maintain at any time
-#define WARM_CONTAINERS_REQUIRED 1
+#define WARM_CONTAINERS_REQUIRED 10
 
 // stack to hold warm container pipe fds
 struct rte_ring* warm_containers;

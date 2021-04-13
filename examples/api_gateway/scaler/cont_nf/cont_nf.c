@@ -1,24 +1,21 @@
 #include "cont_nf.h"
 #include "dpdk/rte_mbuf_core.h"
 
-const int pkt_size = sizeof(struct rte_mbuf*);
-
 /* file descriptors for TX and RX pipes */
 int tx_fd = 0;
 int rx_fd = 0;
 
 int
 open_pipes(void) {
-        if (rx_fd < 1 && (rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY | O_NONBLOCK)) == -1) {
+        if ((rx_fd = open(CONT_RX_PIPE_NAME, O_RDONLY)) == -1) {
                 perror("open rx fail");
                 return -1;
         }
-        printf("Opened rx pipe\n");
-        if (tx_fd < 1 && (tx_fd = open(CONT_TX_PIPE_NAME, O_WRONLY | O_NONBLOCK)) == -1) {
+
+        if ((tx_fd = open(CONT_TX_PIPE_NAME, O_WRONLY | O_NONBLOCK)) == -1) {
                 perror("open tx fail");
                 return -1;
         }
-        printf("Opened tx pipe\n");
 
         return 0;
 }
@@ -33,20 +30,13 @@ pipe_cleanup(void) {
 }
 
 int
-read_packet(struct rte_mbuf** packet) {
-        size_t pkt_size = sizeof(struct rte_mbuf);
-        *packet = malloc(pkt_size);
-
-        return read(rx_fd, *packet, pkt_size);
+read_packet(struct rte_mbuf* packet) {
+        return read(rx_fd, packet, sizeof(struct rte_mbuf));
 }
 
 int
 write_packet(struct rte_mbuf* packet) {
-        if (write(tx_fd, packet, pkt_size) == -1) {
-                return -1;
-        }
-
-        return 0;
+        return write(tx_fd, packet, sizeof(struct rte_mbuf));
 }
 
 /*
@@ -61,23 +51,29 @@ receive_packets(void) {
          * convert rte_mbuf into LWIP pbuf
          * call net_if.input to push packet to TCP stack
          */
+        int ret;
+        struct rte_mbuf packet;
         while (1) {
-                struct rte_mbuf* packet;
-                int ret = read_packet(&packet);
+                ret = read(rx_fd, &packet, sizeof(struct rte_mbuf));
                 if (ret < 1) {
                         // no data yet
-                        printf("No data yet\n");
                         sleep(1);
                         continue;
                 }
-                printf("Received packet from port %d\n", packet->port);
+                printf("Received packet from port %d\n", packet.port);
 
                 // dummy to let host know we modified packet data
-                packet->port = 10;
+                packet.port = 8080;
 
-                if (write_packet(packet) == -1) {
-                        perror("Couldn't write data to TX pipe");
-                        return;
+                if (write_packet(&packet) == -1) {
+                        switch (errno) {
+                                case EAGAIN:
+                                        // non-blocking response
+                                        break;
+                                default:
+                                        perror("Couldn't write data to TX pipe");
+                                        return;
+                        }
                 }
         }
 }
@@ -115,15 +111,11 @@ receive_packets(void) {
 
 int
 main(void) {
-        /* open pipes */
-        printf("Starting to open pipes\n");
-        int count = 0;
-
+        printf("Starting Container NF\n");
         // pipes should be open when container initializes
-        while (open_pipes() == -1 && count++ < RETRY_OPEN_PIPES) {
+        if (open_pipes() == -1) {
                 printf("Pipes, rx: %s and tx: %s not configured correctly\n", CONT_RX_PIPE_NAME, CONT_TX_PIPE_NAME);
-                sleep(1);
-                // exit(1);
+                exit(1);
         }
 
         printf("Initialization finished\n");
@@ -133,7 +125,5 @@ main(void) {
 
         // most likely an error, as most containers run the lifespan of a client
         printf("Finished executing\n");
-
-        // pipe_cleanup();
         return 0;
 }

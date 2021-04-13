@@ -138,7 +138,6 @@ scale_docker(int scale) {
         int i;
         for (i = total_scaled + 1; i <= scale + total_scaled; i++) {
                 // create the pipes for a specific container ID
-                printf("scale %d\n", i);
                 if (create_pipes(i) == -1) {
                         // failed to make pipe
                         printf("Could not create pipes to scale containers\n");
@@ -186,9 +185,6 @@ cleanup(void) {
 
 int
 move_buffer_to_container(void) {
-        struct pipe_fds *pipe;
-        struct onvm_ft_ipv4_5tuple *flow;
-
         if (rte_atomic16_read(&num_running_containers) >= MAX_CONTAINERS) {
                 // cannot afford to add new container
                 perror("Max containers/flows hit");
@@ -197,13 +193,15 @@ move_buffer_to_container(void) {
 
         // loop while there are buffered flow rings, and warm containers to service them
         while (rte_ring_count(container_init_ring) > 0 && rte_ring_count(scale_buffer_ring) > 0) {
-                printf("Have a container and pipe ready to go!\n");
-                if (rte_ring_dequeue(container_init_ring, (void **)(&flow)) == -1) {
+                struct pipe_fds *pipe = NULL;
+                struct onvm_ft_ipv4_5tuple *flow = NULL;
+
+                if (rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == -1) {
                         perror("Couldn't dequeue container_init_ring");
                         continue;
                 }
 
-                if (rte_ring_dequeue(scale_buffer_ring, (void **)(&pipe)) == -1) {
+                if (rte_ring_dequeue(container_init_ring, (void **)(&flow)) == -1) {
                         perror("Couldn't dequeue container_init_ring");
                         continue;
                 }
@@ -215,10 +213,13 @@ move_buffer_to_container(void) {
                  * Add to flow table with <flow>:<struct container> (with pipe fds and other data)
                  * Add rx pipe to epoll for polling
                  */
-
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
                 if (dequeue_and_free_buffer_map(flow, pipe->tx_pipe, pipe->rx_pipe) < 0) {
-                        printf("Failed to dequeue packet flows from ring");
+                        // -1 from fn means flow failed lookup
+                        // in case flow fails, we can retry this container/pipe later
+                        if (rte_ring_enqueue(scale_buffer_ring, (void *)pipe) < 0) {
+                                printf("Couldn't put pipe back in scale buffer\n");
+                                return -1;
+                        }
                         continue;
                 }
                 add_fd_epoll(pipe->rx_pipe);
@@ -248,7 +249,6 @@ scaler(void) {
         int initialized = 0;
         for (; worker_keep_running;) {
                 num_to_scale = WARM_CONTAINERS_REQUIRED - (rte_ring_count(scale_buffer_ring) + created_not_ready);
-                printf("Num to scale: %d not ready: %d\n", num_to_scale, created_not_ready);
                 if (num_to_scale > 0 && !initialized) {
                         initialized = 1;
                         /*

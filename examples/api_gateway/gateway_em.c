@@ -65,7 +65,7 @@ create_tx_poll_mgr(void) {
 /* thread to continuously poll all tx_fds from containers for packets to send out to network */
 void
 polling(void) {
-        struct rte_mbuf *pkt;
+        struct rte_mbuf pkt;
         int i;
 
         // epoll specific initializers
@@ -78,14 +78,12 @@ polling(void) {
         for (; worker_keep_running;) {
                 // blocking wait on epoll for the file descriptors
                 event_count = epoll_wait(epoll_fd, events, rte_atomic16_read(&num_running_containers), POLLING_TIMEOUT);
-                if (event_count > -1)
-                        printf("Got here FOR PIPE %d (num pipes ready)\n", event_count);
                 for (i = 0; i < event_count; i++) {
                         // TODO: implement fairness for polling pipes
                         // read the container pipe buffer until its empty
-                        while ((pkt = read_packet(events[i].data.fd)) != NULL) {
+                        while ((read_packet(events[i].data.fd, &pkt)) != -1) {
                                 // enqueue rte_mbuf onto DPDK port
-                                enqueue_mbuf(pkt);
+                                enqueue_mbuf(&pkt);
                         }
                 }
         }
@@ -108,6 +106,8 @@ add_fd_epoll(int fd) {
 
         struct epoll_event *event = (struct epoll_event *)(malloc(sizeof(struct epoll_event)));
         event->events = EPOLLIN;
+        // set fd of where to poll from
+        event->data.fd = fd;
         if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, event) != 0) {
                 return -1;
         }

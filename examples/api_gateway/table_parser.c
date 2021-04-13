@@ -2,23 +2,21 @@
 
 struct data *
 get_ipv4_dst(struct rte_mbuf *pkt) {
-        struct data *data = NULL;
-        struct onvm_ft_ipv4_5tuple key;
+        struct data *data;
+        // TODO: don't malloc inside pkt_handler
+        struct onvm_ft_ipv4_5tuple *key = malloc(sizeof(struct onvm_ft_ipv4_5tuple));
 
-        int ret = onvm_ft_fill_key(&key, pkt);
-
+        int ret = onvm_ft_fill_key(key, pkt);
         if (ret < 0)
                 return NULL;
 
-        // TODO: flow table should return more info about packet (like container id, pipe file descriptors...)
-        int tbl_index = onvm_ft_lookup_key((struct onvm_ft *)em_tbl, &key, (char **)&data);
+        int tbl_index = onvm_ft_lookup_key((struct onvm_ft *)em_tbl, key, (char **)&data);
         if (tbl_index < 0) {
-                onvm_ft_add_key((struct onvm_ft *)em_tbl, &key, (char **)&data);
+                onvm_ft_add_key((struct onvm_ft *)em_tbl, key, (char **)&data);
                 data->dest = 0;
                 data->num_buffered = 0;
                 rte_rwlock_init(&data->lock);
-                printf("Src %d:%d Dst %d:%d\n", key.src_addr, key.src_port, key.dst_addr, key.dst_port);
-                rte_ring_enqueue(container_init_ring, (void *)&key);
+                rte_ring_enqueue(container_init_ring, (void *)key);
         }
         return data;
 }
@@ -271,17 +269,16 @@ int32_t
 dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_fd) {
         struct data *data;
 
-        printf("GOT KEY HERE\n");
-        printf("Src %d:%d Dst %d:%d\n", key->src_addr, key->src_port, key->dst_addr, key->dst_port);
         int tbl_index = onvm_ft_lookup_key((struct onvm_ft *)em_tbl, key, (char **)&data);
         if (tbl_index < 0) {
-                RTE_LOG(INFO, APP, "Lookup failed in free buffer map.\n");
+                RTE_LOG(INFO, APP, "Lookup failed in buffer map.\n");
                 return -1;
         }
-        rte_rwlock_write_lock(&data->lock);
-        // write buffered packets
-        int i = 0;
 
+        rte_rwlock_write_lock(&data->lock);
+
+        int i = 0;
+        // write buffered packets
         while (i < data->num_buffered) {
                 write_packet(tx_fd, data->buffer[i]);
                 i++;
@@ -292,5 +289,6 @@ dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_f
         data->poll_fd = rx_fd;
         // send packets here
         data->dest = tx_fd;
+
         return 0;
 }

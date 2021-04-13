@@ -147,8 +147,8 @@ int
 rm_fd_epoll(int fd);
 
 // Pipe read/write helpers
-struct rte_mbuf *
-read_packet(int fd);
+int
+read_packet(int fd, struct rte_mbuf *);
 
 int
 write_packet(int fd, struct rte_mbuf *packet);

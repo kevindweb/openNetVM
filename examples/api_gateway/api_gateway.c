@@ -157,17 +157,16 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
                 print_stats(nf_local_ctx);
                 counter = 0;
         }
-        struct data *data;
 
+        struct data *data;
         data = get_ipv4_dst(pkt);
         if (!data) {
+                // probably not an IPV4 packet
                 meta->action = ONVM_NF_ACTION_DROP;
                 return 0;
         } else if (data->dest > 0) {
-                printf("GOT packet here\n");
                 write_packet(data->dest, pkt);
         } else {
-                printf("NEW PACKET\n");
                 if (data->num_buffered < 2) {
                         rte_rwlock_write_lock(&data->lock);
                         data->buffer[data->num_buffered] = pkt;
@@ -278,10 +277,9 @@ sig_handler(int sig) {
 
 void
 init_rings(void) {
-        const unsigned flags = 0;
-        const unsigned ring_size = 512;
+        const unsigned ring_size = 64;
 
-        container_init_ring = rte_ring_create(_INIT_CONT_TRACKER, ring_size, rte_socket_id(), flags);
+        container_init_ring = rte_ring_create(_INIT_CONT_TRACKER, ring_size, rte_socket_id(), RING_F_SP_ENQ);
         if (container_init_ring == NULL)
                 rte_exit(EXIT_FAILURE, "Problem getting receiving ring\n");
         scale_buffer_ring = rte_ring_create(_SCALE_2_BUFFER, NF_QUEUE_RINGSIZE, rte_socket_id(), RING_F_SP_ENQ);
