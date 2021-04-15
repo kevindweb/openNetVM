@@ -34,14 +34,18 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# include lwip properly
+LWIPDIR=lwip-linux/lwip-2.0.2
+LWIPINC=-I$(LWIPDIR)/src/include -I$(LWIPDIR)/src -I$(LWIPDIR)/test/unit 
+
 CC=gcc
-CFLAGS=-I. -Wall -Wextra -O0 -g3
+CFLAGS=-I. -Wall -Wextra -O0 -g3 $(LWIPINC)
 DEPS= cont_nf.h
 
 # binary name
 APP = cont_nf
 
-%.o: %.c $(DEPS)
+%.o: lwip_stack.c cont_nf.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 cont: cont_nf.o

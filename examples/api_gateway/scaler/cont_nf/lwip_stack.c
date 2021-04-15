@@ -1,9 +1,11 @@
-#include <lwip/init.h>
-#include <lwip/netif.h>
-#include <lwip/prot/tcp.h>
-#include <lwip/stats.h>
-#include <lwip/tcp.h>
-#include "axhttp.h"
+#include "lwip/init.h"
+#include "lwip/netif.h"
+#include "lwip/prot/tcp.h"
+#include "lwip/stats.h"
+#include "lwip/tcp.h"
+
+// #include "axhttp.h"
+#include "cont_nf.h"
 #include "dpdk/rte_mbuf_core.h"
 
 #define ETHER_ADDR_LEN 6
@@ -140,8 +142,8 @@ cont_nf_lwip_tcp_write(int id, void *buf, int len) {
         return len;
 }
 
-extern int
-SSL_server(int id);
+// extern int
+// SSL_server(int id);
 
 static err_t
 cont_nf_lwip_tcp_recv(void *arg, struct tcp_pcb *tp, struct pbuf *p, err_t err) {
@@ -166,7 +168,7 @@ cont_nf_lwip_tcp_recv(void *arg, struct tcp_pcb *tp, struct pbuf *p, err_t err) 
                                 es->p = p;
                                 tcp_recved(tp, p->tot_len);
 
-                                // pass pbuf to server
+                                // TODO: call cat's axTLS code
                                 // SSL_server(es->id);
                                 break;
                         default:
@@ -191,8 +193,8 @@ cont_nf_lwip_tcp_sent(void *arg, struct tcp_pcb *tp, u16_t len) {
         return ERR_OK;
 }
 
-extern int
-SSL_conn_new(int id);
+// extern int
+// SSL_conn_new(int id);
 
 static err_t
 cont_nf_lwip_tcp_accept(void *arg, struct tcp_pcb *tp, err_t err) {
@@ -234,37 +236,58 @@ ether_addr_copy(struct ether_addr *src, struct ether_addr *dst) {
         *dst = *src;
 }
 
+// static err_t
+// pipe_output(struct netif *ni, struct pbuf *p, const ip4_addr_t *ip) {
+//         void *pl;
+//         struct ether_hdr *eth_hdr;
+//         char *snd_pkt = NULL;
+//         int r, len;
+//         char *idx = 0;
+
+//         // convert pbuf to mbuf
+//         len = sizeof(struct ether_hdr) + p->tot_len;
+//         snd_pkt = cont_nf_pkt_allocate(input_ring, len);
+//         eth_hdr = (struct ether_hdr *)snd_pkt;
+//         idx = snd_pkt + sizeof(struct ether_hdr);
+
+//         /* generate new ether_hdr*/
+//         ether_addr_copy(&eth_src, &eth_hdr->src_addr);
+//         ether_addr_copy(&eth_dst, &eth_hdr->dst_addr);
+//         eth_hdr->ether_type = ether_type;
+
+//         while (p) {
+//                 pl = p->payload;
+//                 memcpy(idx, pl, p->len);
+
+//                 // assert(p->type != PBUF_POOL);
+//                 idx = idx + p->len;
+//                 p = p->next;
+//         }
+
+//         // TODO: write_packet to tx_fd
+
+//         r = cont_nf_pkt_send(output_ring, (void *)snd_pkt, len, tx_port);
+//         assert(!r);
+
+//         return ERR_OK;
+// }
+
 static err_t
 pipe_output(struct netif *ni, struct pbuf *p, const ip4_addr_t *ip) {
-        void *pl;
-        struct ether_hdr *eth_hdr;
-        char *snd_pkt = NULL;
-        int r, len;
-        char *idx = 0;
+        struct rte_mbuf packet;
+        // TODO: convert p (pbuf) --> packet (mbuf)
 
-        // convert pbuf to mbuf
-        len = sizeof(struct ether_hdr) + p->tot_len;
-        snd_pkt = cont_nf_pkt_allocate(input_ring, len);
-        eth_hdr = (struct ether_hdr *)snd_pkt;
-        idx = snd_pkt + sizeof(struct ether_hdr);
-
-        /* generate new ether_hdr*/
-        ether_addr_copy(&eth_src, &eth_hdr->src_addr);
-        ether_addr_copy(&eth_dst, &eth_hdr->dst_addr);
-        eth_hdr->ether_type = ether_type;
-
-        while (p) {
-                pl = p->payload;
-                memcpy(idx, pl, p->len);
-
-                // assert(p->type != PBUF_POOL);
-                idx = idx + p->len;
-                p = p->next;
+        printf("Sending packet out through network\n");
+        if (write_packet(&packet) == -1) {
+                switch (errno) {
+                        case EAGAIN:
+                                // non-blocking response
+                                break;
+                        default:
+                                perror("Couldn't write data to TX pipe");
+                                return ERR_IF;
+                }
         }
-
-        // TODO: write_packet to tx_fd
-        r = cont_nf_pkt_send(output_ring, (void *)snd_pkt, len, tx_port);
-        assert(!r);
 
         return ERR_OK;
 }
@@ -279,8 +302,8 @@ tcp_if_init(struct netif *ni) {
         return ERR_OK;
 }
 
-extern int
-SSL_init(void);
+// extern int
+// SSL_init(void);
 
 static void
 init_lwip(void) {
@@ -295,7 +318,8 @@ init_lwip(void) {
         netif_set_up(&cos_if);
         netif_set_link_up(&cos_if);
 
-        SSL_init();
+        // TODO: call cat's axTLS initialization code
+        // SSL_init();
 }
 
 int
@@ -322,14 +346,14 @@ cont_nf_create_tcp_connection() {
         tcp_accept(tp, cont_nf_lwip_tcp_accept);
 }
 
-static char curr_pkt[EOS_PKT_MAX_SZ];
+static char curr_pkt[PKT_MAX_SZ];
 
 static void
 cos_net_interrupt(int len, void *pkt) {
         void *pl;
         struct pbuf *p;
 
-        assert(EOS_PKT_MAX_SZ >= len);
+        assert(PKT_MAX_SZ >= len);
         pl = pkt;
         pl = (void *)(pl + sizeof(struct ether_hdr));
         p = pbuf_alloc(PBUF_IP, (len - sizeof(struct ether_hdr)), PBUF_ROM);
@@ -348,8 +372,32 @@ cos_net_interrupt(int len, void *pkt) {
         return;
 }
 
-static void
-init(void) {
+int
+input_mbuf_to_if(struct rte_mbuf pkt) {
+        struct pbuf *p;
+
+        // TODO: turn rte_mbuf into pbuf struct
+        if (!pkt.buf_addr) {
+                return -1;
+        }
+
+        if (cos_if.input(p, &cos_if) != ERR_OK) {
+                return -1;
+        }
+
+        if (!p) {
+                return -1;
+        }
+
+        if (p->ref != 0) {
+                pbuf_free(p);
+        }
+
+        return 0;
+}
+
+static int
+init_stack(void) {
         init_lwip();
         if (cont_nf_create_tcp_connection() < 0) {
                 return -1;
@@ -388,8 +436,8 @@ ssl_server_run() {
         }
 }
 
-void
-cos_init(void *args) {
-        init();
-        ssl_server_run();
-}
+// void
+// cos_init(void *args) {
+//         init();
+//         ssl_server_run();
+// }

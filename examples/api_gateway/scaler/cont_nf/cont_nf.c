@@ -40,17 +40,20 @@ write_packet(struct rte_mbuf* packet) {
 }
 
 /*
- * Receive incoming packets
+ * Receive incoming packets and push to LWIP
  */
 void
 receive_packets(void) {
-        /* put in loop or however we want to set this up */
-        /*
-         * do this in loop:
-         * read packet from rx_fd from host
-         * convert rte_mbuf into LWIP pbuf
-         * call net_if.input to push packet to TCP stack
-         */
+        // initialize tcp stack
+        if (init_stack() < 0) {
+                printf("Couldn't initialize lwip stack");
+                return;
+        }
+
+        // do this in loop:
+        // read packet from rx_fd from host
+        // convert rte_mbuf into LWIP pbuf
+        // call net_if.input to push packet to TCP stack
         int ret;
         struct rte_mbuf packet;
         while (1) {
@@ -63,51 +66,14 @@ receive_packets(void) {
                 printf("Received packet from port %d\n", packet.port);
 
                 // dummy to let host know we modified packet data
-                packet.port = 8080;
+                // packet.port = 8080;
 
-                if (write_packet(&packet) == -1) {
-                        switch (errno) {
-                                case EAGAIN:
-                                        // non-blocking response
-                                        break;
-                                default:
-                                        perror("Couldn't write data to TX pipe");
-                                        return;
-                        }
-                }
-        }
-}
-/*
-void
-receive_packets(void) {
-        // initialize tcp stack
-        if (init_stack() < 0) {
-                printf("Couldn't initialize lwip stack");
-                return;
-        }
-        // do this in loop:
-        // read packet from rx_fd from host
-        // convert rte_mbuf into LWIP pbuf
-        // call net_if.input to push packet to TCP stack
-
-        struct rte_mbuf* packet;
-        printf("Running main loop to check for packets\n");
-        while (1) {
-                packet = read_packet();
-                if (packet == NULL) {
-                        printf("Could not read packet data\n");
+                if (input_mbuf_to_if(packet) == -1) {
+                        printf("Couldn't input packet with port %d to TCP stack\n", packet.port);
                         continue;
                 }
-                printf("Received packet from port %d\n", packet->port);
-
-                // convert mbuf to lwip pbuf and input into the TCP stack
-        }
-
-        if (write_packet(packet) == -1) {
-                perror("Couldn't write data to TX pipe");
         }
 }
-*/
 
 int
 main(void) {

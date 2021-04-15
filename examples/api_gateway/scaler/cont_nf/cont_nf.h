@@ -12,6 +12,9 @@
 
 #define RETRY_OPEN_PIPES 20
 
+// not sure what the max
+#define PKT_MAX_SZ 256
+
 // TODO: not sure we still need this if pies are created on the host side
 int
 create_pipes(void);
@@ -37,3 +40,12 @@ write_packet(struct rte_mbuf*);
 
 void
 receive_packets(void);
+
+/* List of functions in lwip_stack.c */
+
+/* Init connections and entire TCP stack */
+int
+init_stack(void);
+
+/* Turn dpdk mbuf pkt into lwip pbuf and push to TCP iface */
+int input_mbuf_to_if(struct rte_mbuf);
