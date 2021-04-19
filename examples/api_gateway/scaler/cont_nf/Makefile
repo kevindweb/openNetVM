@@ -34,49 +34,16 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# include lwip properly
-LWIPDIR=lwip-linux/lwip-2.0.2
-LWIPINC=-I$(LWIPDIR)/src/include -I$(LWIPDIR)/src -I$(LWIPDIR)/test/unit 
+CONT_DIR=$(HOME)/openNetVM/examples/api_gateway/scaler/cont_nf
+LWIP_DIR=$(CONT_DIR)/lwip-cont_nf-build/Debug
+APP=cont_nf
 
-CC=gcc
-CFLAGS=-I. -Wall -Wextra -O0 -g3 $(LWIPINC)
-DEPS=cont_nf.h
-
-# %.o: lwip_stack.c cont_nf.c $(DEPS)
-# 	$(CC) -c -o $@ $< $(CFLAGS)
-
-cont_nf: lwip_stack.o cont_nf.o
-	$(CC) $(CFLAGS) -o $@ lwip_stack.o cont_nf.o 
-
-lwip_stack.o: lwip_stack.c $(DEPS)
-	$(CC) $(CFLAGS) -c lwip_stack.c $(DEPS)
-
-cont_nf.o: cont_nf.c $(DEPS)
-	$(CC) $(CFLAGS) -c cont_nf.c $(DEPS)
-# conf_nf: lwip_stack.o cont_nf.o $(DEPS)
-# 	$(CC) 
+# run make inside lwip directory
+all:
+	cd $(LWIP_DIR) && make && mv $(APP) $(CONT_DIR)
 
 .PHONY: clean
 
 clean:
-	rm -f *.o cont_nf *.gch
-# LWIPDIR=lwip-linux/lwip-2.0.2
-# LWIPINC=-I$(LWIPDIR)/src/include -I$(LWIPDIR)/src -I$(LWIPDIR)/test/unit 
-
-# CC=gcc
-# CFLAGS=-I. -Wall -Wextra -O0 -g3 $(LWIPINC)
-# DEPS= cont_nf.h
-
-# # binary name
-# APP = cont_nf
-
-# %.o: lwip_stack.c cont_nf.c $(DEPS)
-# 	$(CC) -c -o $@ $< $(CFLAGS)
-
-# cont: cont_nf.o
-# 	$(CC) -o $(APP) cont_nf.o
-
-# .PHONY: clean
-
-# clean:
-# 	rm -f $(APP) *.o
+	rm -f $(APP)
+	cd $(LWIP_DIR) && make clean
