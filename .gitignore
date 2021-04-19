@@ -51,4 +51,7 @@ _preinstall
 *.dSYM/
 
 # Testing files
-.vscode/
+.vscode
+
+# Logs
+*.csv
