@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "lwip/init.h"
 #include "lwip/netif.h"
 #include "lwip/prot/tcp.h"
@@ -11,13 +13,12 @@
 #define ETHER_ADDR_LEN 6
 #define EOS_MAX_CONNECTION 10
 
-static int conf_file_idx = 0;
 static const u16_t port = 0x01BB;  // 443
-static u16_t tx_port;              // 443
+// static u16_t tx_port;              // 443
 static struct ip4_addr ip, mask, gw;
 static struct netif cos_if;
-static struct cont_nf_ring *input_ring, *output_ring;
-static int eth_copy = 0;
+// static struct cont_nf_ring *input_ring, *output_ring;
+// static int eth_copy = 0;
 static int bump_alloc = 0;
 
 /* SSL structure */
@@ -65,12 +66,15 @@ uint16_t ether_type;
 
 static void
 cont_nf_lwip_tcp_err(void *arg, err_t err) {
-        assert(0);
+        UNUSED(arg);
+        printf("TCP error %d\n", err);
+        // assert(0);
         return;
 }
 
 static void
 cont_nf_lwip_tcp_close(struct tcp_pcb *tp, struct echoserver_struct *es) {
+        UNUSED(es);
         tcp_arg(tp, NULL);
         tcp_sent(tp, NULL);
         tcp_recv(tp, NULL);
@@ -83,15 +87,15 @@ static void
 cont_nf_lwip_tcp_send(struct tcp_pcb *tp, struct echoserver_struct *es) {
         err_t wr_err;
 
-        assert(es->p);
+        // assert(es->p);
         wr_err = tcp_write(tp, es->p->payload, es->p->len, 1);
 
         if (wr_err == ERR_OK) {
                 es->p = NULL;
         } else if (wr_err == ERR_MEM) {
-                assert(0);
+                // assert(0);
         } else {
-                assert(0);
+                // assert(0);
         }
 }
 
@@ -112,8 +116,8 @@ cont_nf_lwip_tcp_read(int id, void *buf, int len) {
         struct echoserver_struct *es;
 
         es = &echo_conn[id];
-        assert(es);
-        assert(es->p);
+        // assert(es);
+        // assert(es->p);
 
         plen = es->p->len;
         if (plen - es->curr < len)
@@ -124,7 +128,7 @@ cont_nf_lwip_tcp_read(int id, void *buf, int len) {
                 es->p = NULL;
                 es->curr = 0;
         }
-        assert(es->curr <= plen);
+        // assert(es->curr <= plen);
         return len;
 }
 
@@ -133,11 +137,13 @@ cont_nf_lwip_tcp_write(int id, void *buf, int len) {
         struct echoserver_struct *es;
 
         es = &echo_conn[id];
-        assert(es);
+        // assert(es);
         err_t wr_err = ERR_OK;
-        assert(es->tp);
+        // assert(es->tp);
         wr_err = tcp_write(es->tp, buf, len, 1);
-        assert(wr_err == ERR_OK);
+        if (wr_err != ERR_OK) {
+                printf("Failed to write packet\n");
+        }
 
         return len;
 }
@@ -147,24 +153,26 @@ cont_nf_lwip_tcp_write(int id, void *buf, int len) {
 
 static err_t
 cont_nf_lwip_tcp_recv(void *arg, struct tcp_pcb *tp, struct pbuf *p, err_t err) {
-        err_t ret_err;
+        UNUSED(err);
+
+        // err_t ret_err;
         struct echoserver_struct *es;
 
-        es = &echo_conn[(int)arg];
-        assert(es);
-        if (unlikely(p == NULL)) {
+        es = &echo_conn[*((int *)arg)];
+        // assert(es);
+        if (p == NULL) {
                 printf("Remote host closed TCP connection\n");
                 es->state = ES_CLOSING;
-                assert(es->p == NULL);
+                // assert(es->p == NULL);
                 cont_nf_lwip_tcp_close(tp, es);
         } else {
-                assert(err == ERR_OK);
+                // assert(err == ERR_OK);
                 switch (es->state) {
                         case ES_ACCEPTED:
                                 es->state = ES_RECEIVED;
                                 break;
                         case ES_RECEIVED:
-                                assert(!es->p);
+                                // assert(!es->p);
                                 es->p = p;
                                 tcp_recved(tp, p->tot_len);
 
@@ -172,7 +180,8 @@ cont_nf_lwip_tcp_recv(void *arg, struct tcp_pcb *tp, struct pbuf *p, err_t err) 
                                 // SSL_server(es->id);
                                 break;
                         default:
-                                assert(0);
+                                return ERR_ARG;
+                                // assert(0);
                 }
         }
         return ERR_OK;
@@ -180,6 +189,8 @@ cont_nf_lwip_tcp_recv(void *arg, struct tcp_pcb *tp, struct pbuf *p, err_t err) 
 
 static err_t
 cont_nf_lwip_tcp_sent(void *arg, struct tcp_pcb *tp, u16_t len) {
+        UNUSED(len);
+        UNUSED(arg);
         struct echoserver_struct *es;
 
         es = (struct echoserver_struct *)arg;
@@ -198,13 +209,15 @@ cont_nf_lwip_tcp_sent(void *arg, struct tcp_pcb *tp, u16_t len) {
 
 static err_t
 cont_nf_lwip_tcp_accept(void *arg, struct tcp_pcb *tp, err_t err) {
-        err_t ret_err;
+        UNUSED(arg);
+        UNUSED(err);
+        // err_t ret_err;
         struct echoserver_struct *es;
 
-        assert(bump_alloc < EOS_MAX_CONNECTION);
+        // assert(bump_alloc < EOS_MAX_CONNECTION);
         es = &echo_conn[bump_alloc];
-        if (unlikely(!es)) {
-                assert(0);
+        if (!es) {
+                // assert(0);
                 return ERR_MEM;
         }
 
@@ -217,7 +230,7 @@ cont_nf_lwip_tcp_accept(void *arg, struct tcp_pcb *tp, err_t err) {
         es->curr = 0;
         bump_alloc++;
 
-        tcp_arg(tp, (void *)(es->id));
+        tcp_arg(tp, (void *)(&(es->id)));
         tcp_err(tp, cont_nf_lwip_tcp_err);
         tcp_recv(tp, cont_nf_lwip_tcp_recv);
         tcp_sent(tp, cont_nf_lwip_tcp_sent);
@@ -259,7 +272,7 @@ ether_addr_copy(struct ether_addr *src, struct ether_addr *dst) {
 //                 pl = p->payload;
 //                 memcpy(idx, pl, p->len);
 
-//                 // assert(p->type != PBUF_POOL);
+//                 // // assert(p->type != PBUF_POOL);
 //                 idx = idx + p->len;
 //                 p = p->next;
 //         }
@@ -267,15 +280,20 @@ ether_addr_copy(struct ether_addr *src, struct ether_addr *dst) {
 //         // TODO: write_packet to tx_fd
 
 //         r = cont_nf_pkt_send(output_ring, (void *)snd_pkt, len, tx_port);
-//         assert(!r);
+//         // assert(!r);
 
 //         return ERR_OK;
 // }
 
 static err_t
 pipe_output(struct netif *ni, struct pbuf *p, const ip4_addr_t *ip) {
+        UNUSED(ni);
+        UNUSED(ip);
         struct rte_mbuf packet;
         // TODO: convert p (pbuf) --> packet (mbuf)
+        if (!p) {
+                return ERR_ARG;
+        }
 
         printf("Sending packet out through network\n");
         if (write_packet(&packet) == -1) {
@@ -330,54 +348,58 @@ cont_nf_create_tcp_connection() {
 
         tp = tcp_new();
         if (tp == NULL) {
-                printc("Could not create tcp connection\n");
+                printf("Could not create tcp connection\n");
                 return -1;
         }
         struct ip4_addr ipa = *(struct ip4_addr *)&ip;
         ret = tcp_bind(tp, &ipa, port);
-        assert(ret == ERR_OK);
+        if (ret != ERR_OK)
+                return -1;
+        // assert(ret == ERR_OK);
 
-        assert(tp != NULL);
+        // assert(tp != NULL);
         tp = tcp_listen_with_backlog(tp, queue);
         if (tp == NULL) {
                 return -1;
         }
         tcp_arg(tp, tp);
         tcp_accept(tp, cont_nf_lwip_tcp_accept);
+
+        return 0;
 }
 
-static char curr_pkt[PKT_MAX_SZ];
+// static char curr_pkt[PKT_MAX_SZ];
 
-static void
-cos_net_interrupt(int len, void *pkt) {
-        void *pl;
-        struct pbuf *p;
+// static void
+// cos_net_interrupt(int len, void *pkt) {
+//         void *pl;
+//         struct pbuf *p;
 
-        assert(PKT_MAX_SZ >= len);
-        pl = pkt;
-        pl = (void *)(pl + sizeof(struct ether_hdr));
-        p = pbuf_alloc(PBUF_IP, (len - sizeof(struct ether_hdr)), PBUF_ROM);
-        assert(p);
-        p->payload = pl;
-        if (cos_if.input(p, &cos_if) != ERR_OK) {
-                assert(0);
-        }
+//         // assert(PKT_MAX_SZ >= len);
+//         pl = pkt;
+//         pl = (void *)(pl + sizeof(struct ether_hdr));
+//         p = pbuf_alloc(PBUF_IP, (len - sizeof(struct ether_hdr)), PBUF_ROM);
+//         // assert(p);
+//         p->payload = pl;
+//         if (cos_if.input(p, &cos_if) != ERR_OK) {
+//                 // assert(0);
+//         }
 
-        assert(p);
-        /* FIXME: its a hack herer */
-        if (p->ref != 0) {
-                pbuf_free(p);
-        }
+//         // assert(p);
+//         /* FIXME: its a hack herer */
+//         if (p->ref != 0) {
+//                 pbuf_free(p);
+//         }
 
-        return;
-}
+//         return;
+// }
 
 int
-input_mbuf_to_if(struct rte_mbuf pkt) {
-        struct pbuf *p;
+input_mbuf_to_if(struct rte_mbuf *pkt) {
+        struct pbuf *p = NULL;
 
         // TODO: turn rte_mbuf into pbuf struct
-        if (!pkt.buf_addr) {
+        if (!pkt->buf_addr) {
                 return -1;
         }
 
@@ -396,7 +418,7 @@ input_mbuf_to_if(struct rte_mbuf pkt) {
         return 0;
 }
 
-static int
+int
 init_stack(void) {
         init_lwip();
         if (cont_nf_create_tcp_connection() < 0) {
@@ -405,36 +427,36 @@ init_stack(void) {
         return 0;
 }
 
-void *
-ssl_get_packet(int *len, u16_t *port) {
-        int err, r = 0;
-        void *pkt;
+// void *
+// ssl_get_packet(int *len, u16_t *port) {
+//         int err, r = 0;
+//         void *pkt;
 
-        cont_nf_pkt_collect(input_ring, output_ring);
-        pkt = cont_nf_pkt_recv(input_ring, len, port, &err, output_ring);
-        while (unlikely(!pkt)) {
-                pkt = cont_nf_pkt_recv(input_ring, len, port, &err, output_ring);
-        }
-        if (unlikely(!eth_copy)) {
-                struct ether_hdr *eth_hdr = (struct ether_hdr *)pkt;
-                eth_copy = 1;
-                ether_addr_copy(&eth_hdr->src_addr, &eth_dst);
-                ether_addr_copy(&eth_hdr->dst_addr, &eth_src);
-                ether_type = eth_hdr->ether_type;
-        }
-        return pkt;
-}
+//         cont_nf_pkt_collect(input_ring, output_ring);
+//         pkt = cont_nf_pkt_recv(input_ring, len, port, &err, output_ring);
+//         while (unlikely(!pkt)) {
+//                 pkt = cont_nf_pkt_recv(input_ring, len, port, &err, output_ring);
+//         }
+//         if (unlikely(!eth_copy)) {
+//                 struct ether_hdr *eth_hdr = (struct ether_hdr *)pkt;
+//                 eth_copy = 1;
+//                 ether_addr_copy(&eth_hdr->src_addr, &eth_dst);
+//                 ether_addr_copy(&eth_hdr->dst_addr, &eth_src);
+//                 ether_type = eth_hdr->ether_type;
+//         }
+//         return pkt;
+// }
 
-static void
-ssl_server_run() {
-        int len, r;
-        void *pkt;
+// static void
+// ssl_server_run() {
+//         int len, r;
+//         void *pkt;
 
-        while (1) {
-                pkt = ssl_get_packet(&len, &tx_port);
-                cos_net_interrupt(len, pkt);
-        }
-}
+//         while (1) {
+//                 pkt = ssl_get_packet(&len, &tx_port);
+//                 cos_net_interrupt(len, pkt);
+//         }
+// }
 
 // void
 // cos_init(void *args) {

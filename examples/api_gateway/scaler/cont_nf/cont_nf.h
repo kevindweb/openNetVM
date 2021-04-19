@@ -12,8 +12,10 @@
 
 #define RETRY_OPEN_PIPES 20
 
-// not sure what the max
+// TODO: set this to a realistic cutoff point
 #define PKT_MAX_SZ 256
+
+#define UNUSED(x) (void)(x)
 
 // TODO: not sure we still need this if pies are created on the host side
 int
@@ -48,4 +50,5 @@ int
 init_stack(void);
 
 /* Turn dpdk mbuf pkt into lwip pbuf and push to TCP iface */
-int input_mbuf_to_if(struct rte_mbuf);
+int
+input_mbuf_to_if(struct rte_mbuf*);

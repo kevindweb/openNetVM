@@ -68,7 +68,7 @@ receive_packets(void) {
                 // dummy to let host know we modified packet data
                 // packet.port = 8080;
 
-                if (input_mbuf_to_if(packet) == -1) {
+                if (input_mbuf_to_if(&packet) == -1) {
                         printf("Couldn't input packet with port %d to TCP stack\n", packet.port);
                         continue;
                 }

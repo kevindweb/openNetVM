@@ -40,18 +40,43 @@ LWIPINC=-I$(LWIPDIR)/src/include -I$(LWIPDIR)/src -I$(LWIPDIR)/test/unit
 
 CC=gcc
 CFLAGS=-I. -Wall -Wextra -O0 -g3 $(LWIPINC)
-DEPS= cont_nf.h
+DEPS=cont_nf.h
 
-# binary name
-APP = cont_nf
+# %.o: lwip_stack.c cont_nf.c $(DEPS)
+# 	$(CC) -c -o $@ $< $(CFLAGS)
 
-%.o: lwip_stack.c cont_nf.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+cont_nf: lwip_stack.o cont_nf.o
+	$(CC) $(CFLAGS) -o $@ lwip_stack.o cont_nf.o 
 
-cont: cont_nf.o
-	$(CC) -o $(APP) cont_nf.o
+lwip_stack.o: lwip_stack.c $(DEPS)
+	$(CC) $(CFLAGS) -c lwip_stack.c $(DEPS)
+
+cont_nf.o: cont_nf.c $(DEPS)
+	$(CC) $(CFLAGS) -c cont_nf.c $(DEPS)
+# conf_nf: lwip_stack.o cont_nf.o $(DEPS)
+# 	$(CC) 
 
 .PHONY: clean
 
 clean:
-	rm -f $(APP) *.o
+	rm -f *.o cont_nf *.gch
+# LWIPDIR=lwip-linux/lwip-2.0.2
+# LWIPINC=-I$(LWIPDIR)/src/include -I$(LWIPDIR)/src -I$(LWIPDIR)/test/unit 
+
+# CC=gcc
+# CFLAGS=-I. -Wall -Wextra -O0 -g3 $(LWIPINC)
+# DEPS= cont_nf.h
+
+# # binary name
+# APP = cont_nf
+
+# %.o: lwip_stack.c cont_nf.c $(DEPS)
+# 	$(CC) -c -o $@ $< $(CFLAGS)
+
+# cont: cont_nf.o
+# 	$(CC) -o $(APP) cont_nf.o
+
+# .PHONY: clean
+
+# clean:
+# 	rm -f $(APP) *.o
