@@ -236,7 +236,14 @@ read_packet(int rx_fd, struct rte_mbuf* packet) {
 
 int
 write_packet(int tx_fd, struct rte_mbuf* packet) {
-        return write(tx_fd, packet, sizeof(struct rte_mbuf));
+        // write packet
+        if (write(tx_fd, packet, sizeof(struct rte_mbuf)) == -1) {
+                perror("Couldn't write to pipe");
+                return -1;
+        }
+
+        // write all payload buffer data
+        return write(tx_fd, packet->buf_addr, sizeof(char) * packet->buf_len);
 }
 
 void

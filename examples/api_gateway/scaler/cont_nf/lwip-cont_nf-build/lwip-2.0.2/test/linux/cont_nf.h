@@ -34,11 +34,11 @@ pipe_cleanup(void);
 
 /* Helper to fill packet from RX pipe */
 int
-read_packet(struct rte_mbuf*);
+read_packet(struct rte_mbuf *);
 
 /* Helper to send packet out through network */
 int
-write_packet(struct rte_mbuf*);
+write_packet(struct rte_mbuf *);
 
 void
 receive_packets(void);
@@ -51,4 +51,4 @@ init_stack(void);
 
 /* Turn dpdk mbuf pkt into lwip pbuf and push to TCP iface */
 int
-input_mbuf_to_if(struct rte_mbuf*);
+input_mbuf_to_if(struct rte_mbuf *, void *);

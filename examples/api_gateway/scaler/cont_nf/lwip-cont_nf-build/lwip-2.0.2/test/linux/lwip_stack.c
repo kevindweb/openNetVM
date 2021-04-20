@@ -236,7 +236,6 @@ cont_nf_lwip_tcp_accept(void *arg, struct tcp_pcb *tp, err_t err) {
         tcp_recv(tp, cont_nf_lwip_tcp_recv);
         tcp_sent(tp, cont_nf_lwip_tcp_sent);
 
-        // TODO: is this useful?
         tcp_nagle_disable(tp);
 
         // TODO: call @catherinemeadows and @bdevierno axTLS code
@@ -396,10 +395,29 @@ cont_nf_create_tcp_connection() {
 // }
 
 int
-input_mbuf_to_if(struct rte_mbuf *pkt) {
-        struct pbuf *p = NULL;
+input_mbuf_to_if(struct rte_mbuf *pkt, void *buf) {
+        struct pbuf *p;
 
         // TODO: turn rte_mbuf into pbuf struct
+        if ((p = mem_malloc(sizeof(struct pbuf)))) {
+                printf("Couldn't allocate pbuf");
+                return -1;
+        }
+
+        // buffer sent from host-side for packet
+        p->payload = buf;
+        // total legth of all segments
+        p->tot_len = (u16_t)pkt->pkt_len;
+        // length of this buffer
+        p->len = (u16_t)pkt->buf_len;
+        // packet type
+        p->type = (u8_t)pkt->packet_type;
+        // packet flags
+        p->flags = (u8_t)pkt->ol_flags;
+        // initialize ref count
+        p->ref = 0;
+        p->next = NULL;
+
         if (!pkt->buf_addr) {
                 return -1;
         }
@@ -412,7 +430,7 @@ input_mbuf_to_if(struct rte_mbuf *pkt) {
                 return -1;
         }
 
-        if (p->ref != 0) {
+        if (p->ref > 0) {
                 pbuf_free(p);
         }
 
@@ -520,6 +538,7 @@ receive_packets(void) {
         // call net_if.input to push packet to TCP stack
         int ret;
         struct rte_mbuf packet;
+        void *buf;
         while (1) {
                 ret = read(rx_fd, &packet, sizeof(struct rte_mbuf));
                 if (ret < 1) {
@@ -527,15 +546,29 @@ receive_packets(void) {
                         sleep(1);
                         continue;
                 }
+
+                if (!(buf = malloc(packet.buf_len))) {
+                        perror("Couldn't allocate packet buffer");
+                        continue;
+                }
+                if (read(rx_fd, buf, sizeof(char) * packet.buf_len) < 1) {
+                        // problem getting packet payload from host
+                        perror("Couldn't read payload buffer");
+                        free(buf);
+                        continue;
+                }
+
                 printf("Received packet from port %d\n", packet.port);
 
                 // dummy to let host know we modified packet data
                 // packet.port = 8080;
 
-                if (input_mbuf_to_if(&packet) == -1) {
+                if (input_mbuf_to_if(&packet, buf) == -1) {
                         printf("Couldn't input packet with port %d to TCP stack\n", packet.port);
                         continue;
                 }
+
+                // TODO: figure out when we can free the payload buffer
         }
 }
 
