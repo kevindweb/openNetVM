@@ -34,13 +34,13 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-CONT_DIR=$(HOME)/openNetVM/examples/api_gateway/scaler/cont_nf
-LWIP_DIR=$(CONT_DIR)/lwip-cont_nf-build/Debug
+CWD=$(shell pwd)
+LWIP_DIR=$(CWD)/lwip-cont_nf-build/Debug
 APP=cont_nf
 
 # run make inside lwip directory
 all:
-	cd $(LWIP_DIR) && make && mv $(APP) $(CONT_DIR)
+	cd $(LWIP_DIR) && make && mv $(APP) $(CWD)
 
 .PHONY: clean
 

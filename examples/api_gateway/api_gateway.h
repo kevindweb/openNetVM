@@ -45,7 +45,7 @@
 #include "onvm_flow_table.h"
 #include "onvm_pkt_common.h"
 
-#define NUM_CONTAINERS 4
+#define NUM_CONTAINERS 2
 #define PIPE_DIR "/tmp/pipe"
 #define CONT_PIPE_DIR_NAME "/tmp/pipe/%d"
 #define CONT_RX_PIPE_NAME "/tmp/pipe/%d/rx"

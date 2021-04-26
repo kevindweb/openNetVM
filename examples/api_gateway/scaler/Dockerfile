@@ -1,6 +1,6 @@
 # https://docs.docker.com/develop/develop-images/multistage-build/
 # multi-stage builds to reduce container size
-# run from openNetVM/examples/api_gateway/scaler: `sudo docker build -t <tagname>:latest .`
+# run from openNetVM/examples/api_gateway/scaler: `sudo docker build -t cont_nf:latest .`
 
 FROM ubuntu:20.04 as builder
 WORKDIR /container/
@@ -16,7 +16,7 @@ RUN apt-get update -y && \
     gcc
 
 # compile application
-RUN gcc -o cont_nf cont_nf.c -static
+RUN make clean && make
 
 # multi-stage part - move binary to separate container
 FROM alpine:latest

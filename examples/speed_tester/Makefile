@@ -35,7 +35,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #Set this to 1 if libpcap is installed to use pcap replay
-ENABLE_PCAP=0
+ENABLE_PCAP=1
 
 ifeq ($(RTE_SDK),)
 $(error "Please define RTE_SDK environment variable")
