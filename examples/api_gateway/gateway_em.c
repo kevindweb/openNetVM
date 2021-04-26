@@ -30,7 +30,6 @@ void
 enqueue_mbuf(struct rte_mbuf *pkt) {
         // find which port to send packet to
         struct data *data;
-        printf("Got packet with port %d\n", pkt->port);
         if (true) {
                 return;
         }
@@ -83,6 +82,8 @@ polling(void) {
                         // read the container pipe buffer until its empty
                         while ((read_packet(events[i].data.fd, &pkt)) != -1) {
                                 // enqueue rte_mbuf onto DPDK port
+                                printf("Got packet with port %d from file descriptor %d\n", pkt.port,
+                                       events[i].data.fd);
                                 enqueue_mbuf(&pkt);
                         }
                 }
