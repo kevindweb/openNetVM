@@ -69,7 +69,7 @@ polling(void) {
 
         // epoll specific initializers
         int event_count;
-        struct epoll_event events[MAX_CONTAINERS];
+        struct epoll_event events[max_containers];
 
         // initialize epoll file descriptor for polling
         epoll_fd = epoll_create1(0);

@@ -68,6 +68,10 @@
 // Maximum number of packets buffered in a ring for each flow
 #define MAX_FLOW_PACKETS 4096
 
+int max_containers;
+
+uint16_t api_gateway_id;
+
 /* Handle signals and shutdowns between threads */
 uint8_t worker_keep_running;
 
@@ -111,7 +115,7 @@ void
 nf_setup(struct onvm_nf_local_ctx *nf_local_ctx);
 
 /* functions to start up threads as child NFs */
-int
+struct onvm_nf_local_ctx *
 start_child(const char *tag);
 
 void *

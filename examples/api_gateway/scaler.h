@@ -40,14 +40,11 @@
 
 #include <ftw.h>
 
-// warm container ring
-#define WARM_CONTAINER_RING "warm_cont_ring"
-
 // service name for the docker containers
 #define SERVICE "skeleton"
 
 // how many warm containers to maintain at any time
-#define WARM_CONTAINERS_REQUIRED 10
+#define WARM_CONTAINERS_REQUIRED 4
 
 // stack to hold warm container pipe fds
 struct rte_ring* warm_containers;

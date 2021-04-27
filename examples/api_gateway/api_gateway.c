@@ -79,15 +79,18 @@ static int
 parse_app_args(int argc, char *argv[], const char *progname, struct state_info *stats) {
         int c;
 
+        // default max containers
+        max_containers = MAX_CONTAINERS;
+
         while ((c = getopt(argc, argv, "p:n:k")) != -1) {
                 switch (c) {
                         case 'p':
                                 stats->print_delay = strtoul(optarg, NULL, 10);
                                 break;
                         case 'n':
-                                stats->max_containers = strtoul(optarg, NULL, 10);
+                                max_containers = strtoul(optarg, NULL, 10);
                                 break;
-                        case '?': 
+                        case '?':
                                 usage(progname);
                                 if (optopt == 'p')
                                         RTE_LOG(INFO, APP, "Option -%c requires an argument.\n", optopt);
@@ -181,7 +184,7 @@ packet_handler(struct rte_mbuf *pkt, struct onvm_pkt_meta *meta,
         return 0;
 }
 
-int
+struct onvm_nf_local_ctx *
 start_child(const char *tag) {
         struct onvm_nf_local_ctx *child_local_ctx;
         struct onvm_nf_init_cfg *child_init_cfg;
@@ -195,29 +198,37 @@ start_child(const char *tag) {
 
         if (onvm_nflib_start_nf(child_local_ctx, child_init_cfg) < 0) {
                 printf("Failed to spawn child NF\n");
-                return -1;
+                return NULL;
         }
 
-        return 0;
+        child_local_ctx->nf->thread_info.parent = api_gateway_id;
+
+        return child_local_ctx;
 }
 
 void *
 start_scaler(void *arg __attribute__((unused))) {
-        if (start_child("scaler") < 0) {
+        struct onvm_nf_local_ctx *ctx = start_child("scaler");
+        if (!ctx) {
                 // failed
                 return NULL;
         }
+
         scaler();
+        onvm_nflib_stop(ctx);
         return NULL;
 }
 
 void *
 start_polling(void *arg __attribute__((unused))) {
-        if (start_child("polling") < 0) {
+        struct onvm_nf_local_ctx *ctx = start_child("polling");
+        if (!ctx) {
                 // failed
                 return NULL;
         }
+
         polling();
+        onvm_nflib_stop(ctx);
         return NULL;
 }
 
@@ -225,6 +236,7 @@ void
 nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         struct onvm_nf *nf = nf_local_ctx->nf;
         struct state_info *stats = (struct state_info *)nf->data;
+        api_gateway_id = nf->instance_id;
         if (setup_hash() < 0) {
                 onvm_nflib_stop(nf_local_ctx);
                 rte_free(stats);
@@ -249,6 +261,9 @@ nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         // polling acts as tx thread that gets all container packets out through network
         pthread_create(&poll_thd, NULL, start_polling, NULL);
 
+        // tell manager we need children to clean up before exiting
+        rte_atomic16_set(&nf->thread_info.children_cnt, 2);
+
         RTE_LOG(INFO, APP, "Spawned scaler and poll child NFs\n");
 
         // set up polling mbuf buffer
@@ -266,10 +281,6 @@ sig_handler(int sig) {
 
         /* Will stop the processing for all spawned threads in advanced rings mode */
         worker_keep_running = 0;
-
-        onvm_nflib_stop(nf_local_ctx);
-        onvm_ft_free(em_tbl);
-        rte_memzone_free(mz_cont_nf);
 }
 
 void
@@ -336,11 +347,19 @@ main(int argc, char *argv[]) {
 
         onvm_nflib_run(nf_local_ctx);
 
+        // should be exiting now
+        worker_keep_running = 0;
         onvm_nflib_stop(nf_local_ctx);
+
         /* Stats will be freed by manager. Do not put table data structures in the stats struct as doing so will result
            in seg fault. Update stats to be deallocated by NF? */
         onvm_ft_free(em_tbl);
         rte_memzone_free(mz_cont_nf);
+
+        // clean up rings
+        rte_ring_free(container_init_ring);
+        rte_ring_free(scale_buffer_ring);
+
         printf("If we reach here, program is ending\n");
         return 0;
 }

@@ -69,64 +69,15 @@ int num_requested = 0;
 
 // END globals section
 
-/* API Calls below */
-/* Return the number of containers up in docker-compose */
-// int
-// num_running_containers(void) {
-//         FILE* fp;
-//         int id_hash_length = 14;
-//         char container_id[id_hash_length];
-//         int num = 0;
-//         char docker_call[100];
-
-//         sprintf(docker_call, "docker ps -aq --filter='name=%s'", SERVICE);
-//         fp = popen(docker_call, "r");
-//         if (!fp) {
-//                 printf("Docker failed to execute\n");
-//                 return -1;
-//         }
-
-//         while (fgets(container_id, id_hash_length, fp) != NULL) {
-//                 // remove new line character
-//                 container_id[id_hash_length - 2] = '\0';
-//                 printf("Container hash: %s\n", container_id);
-//                 num++;
-//         }
-
-//         // close file descriptor
-//         pclose(fp);
-
-//         return num;
-// }
-
 /* Initialize docker stack to bring the services up */
 int
 init_stack(void) {
-        /*
-         * Set up first named pipe
-         * Initialize docker container
-         * Place container ID in the shared struct of "warm" containers
-         */
-
-        // set up first named pipe
-        // if (create_pipes(++total_scaled) == -1)
-        //         // failed pipe creation
-        //         return -1;
-
         // docker command to start container
         const char *command = "docker stack deploy -c ./scaler/docker-compose.yml skeleton";
         int ret = system(command);
 
         if (WEXITSTATUS(ret) != 0)
                 return -1;
-
-        // initialize ring
-        const unsigned flags = 0;
-        warm_containers = rte_ring_create(WARM_CONTAINER_RING, MAX_CONTAINERS, rte_socket_id(), flags);
-        if (warm_containers == NULL) {
-                perror("Problem getting ring for warm containers\n");
-                return -1;
-        }
 
         return 0;
 }
@@ -185,7 +136,7 @@ cleanup(void) {
 
 int
 move_buffer_to_container(void) {
-        if (rte_atomic16_read(&num_running_containers) >= MAX_CONTAINERS) {
+        if (rte_atomic16_read(&num_running_containers) >= max_containers) {
                 // cannot afford to add new container
                 perror("Max containers/flows hit");
                 return -1;
@@ -280,7 +231,6 @@ scaler(void) {
                 move_buffer_to_container();
         }
 
-        printf("Scaler thread exiting\n");
         cleanup();
-        worker_keep_running = 0;
+        printf("Scaler thread exiting\n");
 }

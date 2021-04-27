@@ -197,7 +197,7 @@ add_rules(void *tbl, const char *rule_path, int table_type) {
 
 int
 setup_buffer_map(void) {
-        buffer_map = onvm_ft_create(MAX_CONTAINERS, sizeof(struct rte_ring *));
+        buffer_map = onvm_ft_create(max_containers, sizeof(struct rte_ring *));
         if (buffer_map == NULL) {
                 printf("Unable to create buffer map");
                 return -1;
