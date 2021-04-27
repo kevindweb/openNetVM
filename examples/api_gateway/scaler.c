@@ -231,7 +231,7 @@ move_buffer_to_container(void) {
 /* scaler runs to maintain warm containers and garbage collect old ones */
 void
 scaler(void) {
-        // initlaize, to be modified by pipes.c
+        // initialize, to be modified by pipes.c
         created_not_ready = 0;
 
         if (init_pipe_dir() != 0) {

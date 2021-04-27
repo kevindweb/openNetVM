@@ -22,14 +22,14 @@ get_ipv4_dst(struct rte_mbuf *pkt) {
 }
 
 int
-setup_hash(struct state_info *stats) {
+setup_hash(void) {
         em_tbl = onvm_ft_create(HASH_ENTRIES, sizeof(struct data));
         if (em_tbl == NULL) {
                 printf("Unable to create flow table");
                 return -1;
         }
 
-        add_rules(em_tbl, "ipv4_rules_file.txt", stats->print_keys, ONVM_TABLE_EM);
+        add_rules(em_tbl, "ipv4_rules_file.txt", ONVM_TABLE_EM);
         return 0;
 }
 

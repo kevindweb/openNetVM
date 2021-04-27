@@ -195,7 +195,7 @@ enum {
 /* Function pointers for LPM or EM functionality. */
 
 int
-setup_hash(struct state_info *stats);
+setup_hash(void);
 
 struct data *
 get_ipv4_dst(struct rte_mbuf *pkt);

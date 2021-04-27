@@ -225,7 +225,7 @@ void
 nf_setup(struct onvm_nf_local_ctx *nf_local_ctx) {
         struct onvm_nf *nf = nf_local_ctx->nf;
         struct state_info *stats = (struct state_info *)nf->data;
-        if (setup_hash(stats) < 0) {
+        if (setup_hash() < 0) {
                 onvm_nflib_stop(nf_local_ctx);
                 rte_free(stats);
                 rte_exit(EXIT_FAILURE, "Unable to setup Hash\n");
@@ -302,6 +302,7 @@ main(int argc, char *argv[]) {
 
         if ((arg_offset = onvm_nflib_init(argc, argv, NF_TAG, nf_local_ctx, nf_function_table)) < 0) {
                 onvm_nflib_stop(nf_local_ctx);
+                onvm_ft_free(em_tbl);
                 if (arg_offset == ONVM_SIGNAL_TERMINATION) {
                         printf("Exiting due to user termination\n");
                         return 0;
@@ -318,6 +319,7 @@ main(int argc, char *argv[]) {
         struct state_info *stats = rte_calloc("state", 1, sizeof(struct state_info), 0);
         if (stats == NULL) {
                 onvm_nflib_stop(nf_local_ctx);
+                onvm_ft_free(em_tbl);
                 rte_exit(EXIT_FAILURE, "Unable to initialize NF stats.");
         }
         nf->data = (void *)stats;
@@ -328,6 +330,7 @@ main(int argc, char *argv[]) {
         /* Parse application arguments. */
         if (parse_app_args(argc, argv, progname, stats) < 0) {
                 onvm_nflib_stop(nf_local_ctx);
+                onvm_ft_free(em_tbl);
                 rte_exit(EXIT_FAILURE, "Invalid command-line arguments\n");
         }
 
