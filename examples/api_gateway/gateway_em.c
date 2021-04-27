@@ -80,11 +80,11 @@ polling(void) {
                 for (i = 0; i < event_count; i++) {
                         // TODO: implement fairness for polling pipes
                         // read the container pipe buffer until its empty
+                        printf("\n[Received] Container TX fd %d\n", events[i].data.fd);
                         while ((read_packet(events[i].data.fd, &pkt)) != -1) {
                                 // enqueue rte_mbuf onto DPDK port
-                                printf("Got packet with port %d from file descriptor %d\n", pkt.port,
-                                       events[i].data.fd);
                                 enqueue_mbuf(&pkt);
+                                print_key(&pkt);
                         }
                 }
         }

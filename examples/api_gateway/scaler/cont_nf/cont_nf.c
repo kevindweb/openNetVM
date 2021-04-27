@@ -62,9 +62,6 @@ receive_packets(void) {
                 }
                 printf("Received packet from port %d\n", packet.port);
 
-                // dummy to let host know we modified packet data
-                packet.port = 8080;
-
                 if (write_packet(&packet) == -1) {
                         switch (errno) {
                                 case EAGAIN:

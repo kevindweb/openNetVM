@@ -171,6 +171,7 @@ move_buffer_to_container(void) {
                                 printf("Couldn't put pipe back in scale buffer\n");
                                 return -1;
                         }
+                        printf("Putting pipe back in ring to retry\n");
                         continue;
                 }
                 add_fd_epoll(pipe->rx_pipe);

@@ -45,7 +45,7 @@
 #include "onvm_flow_table.h"
 #include "onvm_pkt_common.h"
 
-#define NUM_CONTAINERS 4
+#define NUM_CONTAINERS 10
 #define PIPE_DIR "/tmp/pipe"
 #define CONT_PIPE_DIR_NAME "/tmp/pipe/%d"
 #define CONT_RX_PIPE_NAME "/tmp/pipe/%d/rx"
@@ -243,3 +243,6 @@ get_flow_queue_name(struct onvm_ft_ipv4_5tuple key);
 
 int32_t
 dequeue_and_free_buffer_map(struct onvm_ft_ipv4_5tuple *key, int tx_fd, int rx_fd);
+
+void
+print_key(struct rte_mbuf *);

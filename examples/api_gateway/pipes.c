@@ -164,7 +164,7 @@ ready_pipes(void) {
         struct init_pipe* tmp;
         struct init_pipe* iterator = head;
         struct init_pipe* prev = iterator;
-        struct pipe_fds* warm_pipes = malloc(sizeof(struct pipe_fds));
+        struct pipe_fds* warm_pipes;
 
         // open in nonblock write only will fail if pipe isn't open on read end
         while (iterator->next != NULL) {
@@ -206,6 +206,7 @@ ready_pipes(void) {
         // pipe ready
         if (((tx_fd = open(iterator->tx_pipe, O_WRONLY | O_NONBLOCK)) >= 0)) {
                 // add (tx_fd, rx_fd) to the stack
+                warm_pipes = malloc(sizeof(struct pipe_fds));
                 warm_pipes->rx_pipe = iterator->rx_fd;
                 warm_pipes->tx_pipe = tx_fd;
 
