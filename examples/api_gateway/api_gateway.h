@@ -104,7 +104,6 @@ struct state_info {
         uint64_t dest_eth_addr[NUM_CONTAINERS];
         uint64_t packets_dropped;
         uint32_t print_delay;
-        uint8_t print_keys;
         uint8_t max_containers;
 };
 
@@ -217,12 +216,11 @@ is_bypass_line(char *buff);
 
 /*
  * This function takes in a file name and parses the file contents to
- * add custom flows to the the flow table passed in. If print_keys is true,
- * print each key that has been added to the flow table. Currently
- * hash and lpm is suppoerted.
+ * add custom flows to the the flow table passed in. Currently
+ * hash and lpm is supported.
  */
 int
-add_rules(void *tbl, const char *rule_path, uint8_t print_keys, int table_type);
+add_rules(void *tbl, const char *rule_path, int table_type);
 
 int
 setup_buffer_map(void);

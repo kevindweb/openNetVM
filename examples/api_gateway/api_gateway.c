@@ -87,10 +87,7 @@ parse_app_args(int argc, char *argv[], const char *progname, struct state_info *
                         case 'n':
                                 stats->max_containers = strtoul(optarg, NULL, 10);
                                 break;
-                        case 'k':
-                                stats->print_keys = 1;
-                                break;
-                        case '?':
+                        case '?': 
                                 usage(progname);
                                 if (optopt == 'p')
                                         RTE_LOG(INFO, APP, "Option -%c requires an argument.\n", optopt);

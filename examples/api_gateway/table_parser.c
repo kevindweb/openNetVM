@@ -138,7 +138,7 @@ is_bypass_line(char *buff) {
 }
 
 int
-add_rules(void *tbl, const char *rule_path, uint8_t print_keys, int table_type) {
+add_rules(void *tbl, const char *rule_path, int table_type) {
         FILE *fh;
         char buff[LINE_MAX];
         unsigned int i = 0;
@@ -176,10 +176,6 @@ add_rules(void *tbl, const char *rule_path, uint8_t print_keys, int table_type) 
                 data->dest = dest;
                 if (tbl_index < 0)
                         rte_exit(EXIT_FAILURE, "Unable to add entry %u\n", i);
-                if (print_keys) {
-                        printf("\nAdding key:");
-                        _onvm_ft_print_key(&ipv4_tuple.key);
-                }
         }
 
         fclose(fh);
